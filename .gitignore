@@ -1,4 +1,5 @@
 Cargo.lock
 .idea
 target
-testcase
+key.txt
+testcase/S1/out
