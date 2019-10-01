@@ -91,7 +91,8 @@ impl<'a> FuncDef<'a> {
 pub struct VarDef<'a> {
   pub loc: Loc,
   pub name: &'a str,
-  pub syn_ty: SynTy<'a>,
+  // if type is `Var`, syn_ty should be None(according to the test result)
+  pub syn_ty: Option<SynTy<'a>>,
   // if this is in an ClassDef, `init` must be None
   // if `syn_ty` is `Var` (not in the basic framework), `init` must be Some
   pub init: Option<(Loc, Expr<'a>)>,
