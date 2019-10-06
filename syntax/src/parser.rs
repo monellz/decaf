@@ -46,6 +46,7 @@ fn mk_bin<'p>(l: Expr<'p>, r: Expr<'p>, loc: Loc, op: BinOp) -> Expr<'p> {
 #[lalr1(Program)]
 #[lex(r##"
 priority = [
+  { assoc = 'left', terms = ['RightArrow'] },
   { assoc = 'left', terms = ['Or'] },
   { assoc = 'left', terms = ['And'] },
   { assoc = 'no_assoc', terms = ['Eq', 'Ne'] },
@@ -54,10 +55,10 @@ priority = [
   { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
   { assoc = 'no_assoc', terms = ['UMinus', 'Not'] },
   { assoc = 'no_assoc', terms = ['LBrk', 'Dot'] },
-  { assoc = 'no_assoc', terms = ['RPar', 'Empty'] },
+  { assoc = 'no_assoc', terms = ['LPar', 'RPar', 'Empty'] },
   { assoc = 'no_assoc', terms = ['Else'] },
 ]
-
+#LPar优先级应该放哪?
 [lexical]
 'void' = 'Void'
 'int' = 'Int'
@@ -83,6 +84,8 @@ priority = [
 'static' = 'Static'
 'abstract' = 'Abstract'
 'instanceof' = 'InstanceOf'
+'fun' = 'Fun'
+'=>' = 'RightArrow'
 '<=' = 'Le'
 '>=' = 'Ge'
 '==' = 'Eq'
@@ -238,12 +241,49 @@ impl<'p> Parser<'p> {
   #[rule(Simple ->)]
   fn simple_skip() -> Stmt<'p> { mk_stmt(NO_LOC, Skip.into()) }
 
+  //**start***/
+  /*
   #[rule(Expr -> LValue)]
   fn expr_lvalue(l: Expr<'p>) -> Expr<'p> { l }
   #[rule(Expr -> VarSel LPar ExprListOrEmpty RPar)]
   fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
     mk_expr(l.loc(), Call { func: Box::new(func), arg, func_ref: dft() }.into())
   }
+  */
+  //****done***/
+  
+  //try_0
+  #[rule(Expr -> LValue)]
+  fn expr_lvalue(l: Expr<'p>) -> Expr<'p> { l }
+
+  #[rule(Expr -> Expr LPar ExprListOrEmpty RPar)]
+  fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
+    mk_expr(l.loc(), Call { func: Box::new(func), arg, func_ref: dft() }.into())
+  }
+
+  //try_1
+  /*
+  #[rule(Expr -> FuncSel LPar ExprListOrEmpty RPar)]
+  fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
+    mk_expr(l.loc(), Call { func: Box::new(func), arg, func_ref: dft() }.into())
+  }
+  #[rule(FuncSel -> Expr)]
+  fn funcsel(func: Expr<'p>) -> Expr<'p> { func }
+  */
+  //try_2
+  /*
+  #[rule(Expr -> LValue)]
+  fn expr_lvalue(l: Expr<'p>) -> Expr<'p> { l }
+  #[rule(Expr -> VarSel LPar ExprListOrEmpty RPar)]
+  fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
+    mk_expr(l.loc(), Call { func: Box::new(func), arg, func_ref: dft() }.into())
+  }
+  #[rule(Expr -> Expr LPar ExprListOrEmpty RPar)]
+  fn expr_call1(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
+    mk_expr(l.loc(), Call { func: Box::new(func), arg, func_ref: dft() }.into())
+  }
+  */
+
   #[rule(Expr -> IntLit)]
   fn expr_int(&mut self, i: Token) -> Expr<'p> { mk_int_lit(i.loc(), i.str(), &mut self.error) }
   #[rule(Expr -> True)]
@@ -255,6 +295,14 @@ impl<'p> Parser<'p> {
     let (loc, str) = (s.loc(), s.str());
     check_str(str, &mut self.error, loc);
     mk_expr(loc, str[1..str.len() - 1].into())
+  }
+  #[rule(Expr -> Fun LPar VarDefListOrEmpty RPar RightArrow Expr)]
+  fn expr_lambda(f: Token, _l: Token, param: Vec<&'p VarDef<'p>>, _r: Token, _a: Token, e: Expr<'p>) -> Expr<'p> {
+    mk_expr(f.loc(), Lambda { param, kind: LambdaKind::Expr(Box::new(e)) }.into())
+  }
+  #[rule(Expr -> Fun LPar VarDefListOrEmpty RPar Block)]
+  fn expr_block_lambda(f: Token, _l: Token, param: Vec<&'p VarDef<'p>>, _r: Token, block: Block<'p>) -> Expr<'p> {
+    mk_expr(f.loc(), Lambda { param, kind: LambdaKind::Block(block) }.into())
   }
   #[rule(Expr -> Null)]
   fn expr_null(n: Token) -> Expr<'p> { mk_expr(n.loc(), NullLit.into()) }
@@ -338,6 +386,12 @@ impl<'p> Parser<'p> {
     mk_expr(name.loc(), VarSel { owner, name: name.str(), var: dft() }.into())
   }
 
+  //try_4
+  /*
+  #[rule(VarSel -> Expr)]
+  fn var_sel1(e: Expr<'p>) -> Expr<'p> { e }
+  */
+
   #[rule(LValue -> VarSel)]
   fn lvalue_var_sel(e: Expr<'p>) -> Expr<'p> { e }
   #[rule(LValue -> Expr LBrk Expr RBrk)]
@@ -357,4 +411,19 @@ impl<'p> Parser<'p> {
   fn type_class(c: Token, name: Token) -> SynTy<'p> { SynTy { loc: c.loc(), arr: 0, kind: SynTyKind::Named(name.str()) } }
   #[rule(Type -> Type LBrk RBrk)]
   fn type_array(mut ty: SynTy<'p>, _l: Token, _r: Token) -> SynTy<'p> { (ty.arr += 1, ty).1 }
+  //TypeList is not empty
+  #[rule(Type -> Type LPar TypeListOrEmpty RPar)]
+  fn type_lambda(ret: SynTy<'p>, _l: Token, mut param: Vec<SynTy<'p>>, _r: Token) -> SynTy<'p> {
+    let loc = ret.loc;
+    param.push(ret);
+    SynTy { loc, arr: 0, kind: SynTyKind::Lambda(param) }
+  }
+  #[rule(TypeListOrEmpty -> TypeList)]
+  fn type_listorempty(param: Vec<SynTy<'p>>) -> Vec<SynTy<'p>> { param }
+  #[rule(TypeListOrEmpty ->)]
+  fn type_listorempty1() -> Vec<SynTy<'p>> { vec![] }
+  #[rule(TypeList -> TypeList Comma Type)]
+  fn type_list1(param: Vec<SynTy<'p>>, _c: Token, t: SynTy<'p>) -> Vec<SynTy<'p>> { param.pushed(t) }
+  #[rule(TypeList -> Type)]
+  fn type_list0(t: SynTy<'p>) -> Vec<SynTy<'p>> { vec![t] }
 }

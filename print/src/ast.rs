@@ -55,6 +55,20 @@ impl Printable for SynTy<'_> {
         write!(p, "TClass @ {:?}", self.loc).ignore();
         p.indent(|p| c.print(p));
       }
+      SynTyKind::Lambda(v) => {
+        write!(p, "TLambda @ {:?}", self.loc).ignore();
+        //ret
+        p.indent(|p| v[v.len() - 1].print(p));
+        //param
+        p.indent(|p| v[0..v.len() - 1].print(p));
+        /*
+        //param
+        write!(p, "List").ignore();
+        for k in 0..v.len() - 1 {
+          p.indent(|p| v[k].print(p));
+        }
+        */
+      }
     }
     for _ in 0..self.arr { p.dec(); }
   }
@@ -149,9 +163,20 @@ impl Printable for Expr<'_> {
     use ExprKind::*;
     print_enum!(self.kind, self.loc, p, x,
       VarSel => x.owner x.name, IndexSel => x.arr x.idx, IntLit => x, BoolLit => x, StringLit => "\"".to_owned() + x + "\"",
+      Lambda => x.param x.kind,
       NullLit => , Call => x.func x.arg, Unary => x.op.to_word_str() x.r, Binary => x.op.to_word_str() x.l x.r,
       This => , ReadInt => , ReadLine => , NewClass => x.name, NewArray => x.elem x.len, ClassTest => x.expr x.name,
       ClassCast => x.expr x.name
     );
+  }
+}
+
+impl Printable for LambdaKind<'_> {
+  #[allow(unused_variables)]
+  fn print(&self, p: &mut IndentPrinter) {
+    match self {
+      LambdaKind::Expr(x) => x.print(p),
+      LambdaKind::Block(x) => x.print(p),
+    }
   }
 }

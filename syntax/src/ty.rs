@@ -9,6 +9,8 @@ pub enum SynTyKind<'a> {
   String,
   Void,
   Named(&'a str),
+  //[0..size-2] param [size-1] ret
+  Lambda(Vec<SynTy<'a>>),
 }
 
 #[derive(Eq, PartialEq)]
