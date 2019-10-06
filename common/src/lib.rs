@@ -1,11 +1,11 @@
-pub mod loc;
 pub mod errors;
 pub mod ignore_result;
 pub mod indent_printer;
-pub mod r#ref;
+pub mod loc;
 pub mod op;
+pub mod r#ref;
 
-pub use crate::{loc::*, errors::*, ignore_result::*, indent_printer::*, r#ref::*, op::*};
+pub use crate::{errors::*, ignore_result::*, indent_printer::*, loc::*, op::*, r#ref::*};
 use hashbrown::hash_map::DefaultHashBuilder;
 
 pub const MAIN_CLASS: &str = "Main";
