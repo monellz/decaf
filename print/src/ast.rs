@@ -75,17 +75,8 @@ impl Printable for SynTy<'_> {
             }
             SynTyKind::Lambda(v) => {
                 write!(p, "TLambda @ {:?}", self.loc).ignore();
-                //ret
-                p.indent(|p| v[v.len() - 1].print(p));
-                //param
-                p.indent(|p| v[0..v.len() - 1].print(p));
-                /*
-                //param
-                write!(p, "List").ignore();
-                for k in 0..v.len() - 1 {
-                  p.indent(|p| v[k].print(p));
-                }
-                */
+                p.indent(|p| v[0].print(p));
+                p.indent(|p| v[1..].print(p));
             }
         }
         for _ in 0..self.arr {

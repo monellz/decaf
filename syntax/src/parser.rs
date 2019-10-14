@@ -862,11 +862,12 @@ impl<'p> Parser<'p> {
     #[rule(Type -> Type LPar TypeListOrEmpty RPar)]
     fn type_lambda(ret: SynTy<'p>, _l: Token, mut param: Vec<SynTy<'p>>, _r: Token) -> SynTy<'p> {
         let loc = ret.loc;
-        param.push(ret);
+        let mut v = vec![ret];
+        v.append(&mut param);
         SynTy {
             loc,
             arr: 0,
-            kind: SynTyKind::Lambda(param),
+            kind: SynTyKind::Lambda(v),
         }
     }
     #[rule(TypeListOrEmpty -> TypeList)]
