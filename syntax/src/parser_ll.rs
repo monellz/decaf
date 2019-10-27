@@ -66,7 +66,16 @@ impl<'p> Parser<'p> {
             x
         } else {
             self.error(lookahead, lexer.loc());
-            unimplemented!()
+            //unimplemented!()
+            loop {
+                *lookahead = lexer.next();
+                if let Some(x) = table.get(&(lookahead.ty as u32)) {
+                    break x
+                }
+                if let Some(x) = end.get(&(lookahead.ty as u32)) {
+                    return StackItem::_Fail;
+                }
+            }
         };
         let value_stk = rhs
             .iter()
@@ -210,6 +219,8 @@ priority = []
 'static' = 'Static'
 'abstract' = 'Abstract'
 'instanceof' = 'InstanceOf'
+'fun' = 'Fun'
+'RightArrow' = 'RightArrow'
 '<=' = 'Le'
 '>=' = 'Ge'
 '==' = 'Eq'
