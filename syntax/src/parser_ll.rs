@@ -66,10 +66,12 @@ impl<'p> Parser<'p> {
             x
         } else {
             self.error(lookahead, lexer.loc());
-            //unimplemented!();
+            if end.contains(&(lookahead.ty as u32)) {
+                return StackItem::_Fail;
+            }
             loop {
                 *lookahead = lexer.next();
-                if let Some(_) = end.get(&(lookahead.ty as u32)) {
+                if end.contains(&(lookahead.ty as u32)) {
                     return StackItem::_Fail;
                 }
                 if let Some(x) = table.get(&(lookahead.ty as u32)) {
@@ -141,39 +143,28 @@ fn merge_idx_id_call<'p>(mut l: Expr<'p>, ts: Vec<IndexOrIdOrCall<'p>>) -> Expr<
                     .into(),
                 )
             }
-            IndexOrIdOrCall::IdOrCall(loc, name, maybe_call) => match maybe_call {
-                Some((call_loc, arg)) => {
-                    let func = Box::new(mk_expr(
-                        loc,
-                        VarSel {
-                            owner: Some(Box::new(l)),
-                            name,
-                            var: dft(),
-                        }
-                        .into(),
-                    ));
-                    l = mk_expr(
-                        call_loc,
-                        Call {
-                            func,
-                            arg,
-                            func_ref: dft(),
-                        }
-                        .into(),
-                    );
-                }
-                None => {
-                    l = mk_expr(
-                        loc,
-                        VarSel {
-                            owner: Some(Box::new(l)),
-                            name,
-                            var: dft(),
-                        }
-                        .into(),
-                    )
-                }
+            IndexOrIdOrCall::Id(loc, name) => {
+                l = mk_expr(
+                    loc,
+                    VarSel {
+                        owner: Some(Box::new(l)),
+                        name,
+                        var: dft(),
+                    }
+                    .into(),
+                );
             },
+            IndexOrIdOrCall::Call(loc, arg) => {
+                l = mk_expr(
+                    loc,
+                    Call {
+                        func: Box::new(l),
+                        arg,
+                        func_ref: dft(),
+                    }
+                    .into(),
+                )
+            }
         }
     }
     l
@@ -182,7 +173,9 @@ fn merge_idx_id_call<'p>(mut l: Expr<'p>, ts: Vec<IndexOrIdOrCall<'p>>) -> Expr<
 // this is pub because StackItem is pub(maybe you need it? though not very likely)
 pub enum IndexOrIdOrCall<'p> {
     Index(Loc, Expr<'p>),
-    IdOrCall(Loc, &'p str, Option<(Loc, Vec<Expr<'p>>)>),
+    //IdOrCall(Loc, &'p str, Option<(Loc, Vec<Expr<'p>>)>),
+    Id(Loc, &'p str),
+    Call(Loc, Vec<Expr<'p>>),
 }
 
 pub enum NewClassOrArray<'p> {
@@ -904,41 +897,6 @@ impl<'p> Parser<'p> {
         e
     }
 
-    //lambda
-    /*
-    #[rule(Expr7 -> Expr8 LPar ExprListOrEmpty RPar)]
-    fn expr8_lambda(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
-        mk_expr(
-            l.loc(),
-            Call {
-                func: Box::new(func),
-                arg,
-                func_ref: dft(),
-            }
-            .into(),
-        )
-    }
-    */
-    /*
-    #[rule(Expr7 -> Expr8 IdOrCall)]
-    fn expr7_8suffix(e: Expr<'p>, suffix: Option<(Loc, Vec<Expr<'p>>)>) -> Expr<'p> {
-        match suffix {
-            Some((loc, arg)) => {
-                mk_expr(
-                    loc,
-                    Call {
-                        func: Box::new(e),
-                        arg,
-                        func_ref: dft(),
-                    }
-                    .into(),
-                )
-            },
-            None => e,
-        }
-    }
-
-    */
 
     #[rule(ParenOrCast -> Expr RPar Term8)]
     fn paren_or_cast_p(l: Expr<'p>, _r: Token, ts: Vec<IndexOrIdOrCall<'p>>) -> Expr<'p> {
@@ -962,6 +920,12 @@ impl<'p> Parser<'p> {
         merge_idx_id_call(l, ts)
     }
 
+
+    #[rule(Term8 -> LPar ExprListOrEmpty RPar Term8)]
+    fn term8_lambda(l: Token, expr_list: Vec<Expr<'p>>, r: Token, t: Vec<IndexOrIdOrCall<'p>>) -> Vec<IndexOrIdOrCall<'p>> {
+        t.pushed(IndexOrIdOrCall::Call(l.loc(), expr_list.reversed()))
+    }
+
     #[rule(Term8 -> LBrk Expr RBrk Term8)]
     fn term8_index(
         l: Token,
@@ -971,20 +935,20 @@ impl<'p> Parser<'p> {
     ) -> Vec<IndexOrIdOrCall<'p>> {
         r.pushed(IndexOrIdOrCall::Index(l.loc(), idx))
     }
-    #[rule(Term8 -> Dot Id IdOrCall Term8)]
+    #[rule(Term8 -> Dot Id Term8)]
     fn term8_id_or_call(
         _d: Token,
         name: Token,
-        arg: Option<(Loc, Vec<Expr<'p>>)>,
         r: Vec<IndexOrIdOrCall<'p>>,
     ) -> Vec<IndexOrIdOrCall<'p>> {
-        r.pushed(IndexOrIdOrCall::IdOrCall(name.loc(), name.str(), arg))
+        r.pushed(IndexOrIdOrCall::Id(name.loc(), name.str()))
     }
     #[rule(Term8 ->)]
     fn term8_0() -> Vec<IndexOrIdOrCall<'p>> {
         vec![]
     }
 
+    /*
     #[rule(IdOrCall -> LPar ExprListOrEmpty RPar)]
     fn id_or_call_c(l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Option<(Loc, Vec<Expr<'p>>)> {
         Some((l.loc(), arg.reversed()))
@@ -993,6 +957,7 @@ impl<'p> Parser<'p> {
     fn id_or_call_i() -> Option<(Loc, Vec<Expr<'p>>)> {
         None
     }
+    */
 
     #[rule(Expr9 -> IntLit)]
     fn expr9_int(&mut self, i: Token) -> Expr<'p> {
@@ -1047,6 +1012,20 @@ impl<'p> Parser<'p> {
             .into(),
         )
     }
+    #[rule(Expr9 -> Id)]
+    fn expr9_id(name: Token) -> Expr<'p> {
+        mk_expr(
+            name.loc(),
+            VarSel {
+                owner: None,
+                name: name.str(),
+                var: dft(),
+            }
+            .into(),
+        )
+    }
+
+    /*
     #[rule(Expr9 -> Id IdOrCall)]
     fn expr9_id_or_call(name: Token, ioc: Option<(Loc, Vec<Expr<'p>>)>) -> Expr<'p> {
         match ioc {
@@ -1081,6 +1060,7 @@ impl<'p> Parser<'p> {
             ),
         }
     }
+    */
     #[rule(Expr9 -> New NewClassOrArray)]
     fn expr9_new(n: Token, noa: NewClassOrArray<'p>) -> Expr<'p> {
         let loc = n.loc();
