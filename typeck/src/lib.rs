@@ -66,7 +66,7 @@ impl<'a> TypeCk<'a> {
                     self.errors.issue(s.loc, NoSuchClass(name))
                 }
             },
-            SynTyKind::Lambda(v) => unimplemented!(),
+            SynTyKind::Lambda(_) => unimplemented!(),
         };
         match kind {
             TyKind::Error => Ty::error(),

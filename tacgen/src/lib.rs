@@ -231,7 +231,7 @@ impl<'a> TacGen<'a> {
         use ExprKind::*;
         let assign = self.cur_assign.take();
         match &e.kind {
-            Lambda(v) => unimplemented!(),
+            Lambda(_) => unimplemented!(),
             VarSel(v) => Reg({
                 let var = v.var.get().unwrap();
                 let off = self.var_info[&Ref(var)].off;

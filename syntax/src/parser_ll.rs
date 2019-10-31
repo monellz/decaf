@@ -66,14 +66,14 @@ impl<'p> Parser<'p> {
             x
         } else {
             self.error(lookahead, lexer.loc());
-            //unimplemented!()
+            //unimplemented!();
             loop {
                 *lookahead = lexer.next();
-                if let Some(x) = table.get(&(lookahead.ty as u32)) {
-                    break x
-                }
-                if let Some(x) = end.get(&(lookahead.ty as u32)) {
+                if let Some(_) = end.get(&(lookahead.ty as u32)) {
                     return StackItem::_Fail;
+                }
+                if let Some(x) = table.get(&(lookahead.ty as u32)) {
+                    break x;
                 }
             }
         };
@@ -200,6 +200,7 @@ priority = []
 'int' = 'Int'
 'bool' = 'Bool'
 'string' = 'String'
+'var' = 'Var'
 'new' = 'New'
 'null' = 'Null'
 'true' = 'True'
@@ -220,7 +221,7 @@ priority = []
 'abstract' = 'Abstract'
 'instanceof' = 'InstanceOf'
 'fun' = 'Fun'
-'RightArrow' = 'RightArrow'
+'=>' = 'RightArrow'
 '<=' = 'Le'
 '>=' = 'Ge'
 '==' = 'Eq'
@@ -618,6 +619,31 @@ impl<'p> Parser<'p> {
                 .into(),
         )
     }
+    //var inference must be initialized
+    #[rule(Simple -> Var Id Assign Expr)]
+    fn simple_var_def_inference(
+        &self,
+        _v: Token, 
+        name: Token,
+        a: Token,
+        src: Expr<'p>,
+    ) -> Stmt<'p> {
+        let loc = name.loc();
+        let init = Some((a.loc(), src));
+        mk_stmt(
+            loc,
+            (&*self.alloc.var.alloc(VarDef {
+                loc,
+                name: name.str(),
+                syn_ty: None,
+                init,
+                ty: dft(),
+                owner: dft(),
+            }))
+                .into(),
+        )
+    }
+ 
     #[rule(Simple ->)]
     fn simple_skip() -> Stmt<'p> {
         mk_stmt(NO_LOC, Skip.into())
@@ -732,7 +758,48 @@ impl<'p> Parser<'p> {
         (n.loc(), UnOp::Not)
     }
 
+
+    #[rule(Expr -> Expr0)]
+    fn expr0(e: Expr<'p>) -> Expr<'p> {
+        e
+    }
+ 
+    #[rule(Expr0 -> Fun LPar VarDefListOrEmpty RPar LambdaKind)]
+    fn expr_lambda_prefix(
+        _f: Token,
+        _l: Token,
+        param: Vec<&'p VarDef<'p>>,
+        _r: Token,
+        kind: LambdaKind<'p>,
+    ) -> Expr<'p> {
+        mk_expr(
+            _f.loc(),
+            Lambda {
+                param: param.reversed(),
+                kind,
+            }
+            .into(),
+        )
+    }
+
+    #[rule(LambdaKind -> Block)]
+    fn lambdakind_block(block: Block<'p>) -> LambdaKind<'p> {
+        LambdaKind::Block(block)
+    }
+
+    #[rule(LambdaKind -> RightArrow Expr)]
+    fn lambdakind_expr(_r: Token, e: Expr<'p>) -> LambdaKind<'p> {
+        LambdaKind::Expr(Box::new(e))
+    }
+
+    /*
     #[rule(Expr -> Expr1)]
+    fn expr(e: Expr<'p>) -> Expr<'p> {
+        e
+    }
+    */
+
+    #[rule(Expr0 -> Expr1)]
     fn expr(e: Expr<'p>) -> Expr<'p> {
         e
     }
@@ -831,10 +898,47 @@ impl<'p> Parser<'p> {
     fn expr7_par_or_cast(_l: Token, e: Expr<'p>) -> Expr<'p> {
         e
     }
+
     #[rule(Expr7 -> Expr8)]
     fn expr7_8(e: Expr<'p>) -> Expr<'p> {
         e
     }
+
+    //lambda
+    /*
+    #[rule(Expr7 -> Expr8 LPar ExprListOrEmpty RPar)]
+    fn expr8_lambda(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
+        mk_expr(
+            l.loc(),
+            Call {
+                func: Box::new(func),
+                arg,
+                func_ref: dft(),
+            }
+            .into(),
+        )
+    }
+    */
+    /*
+    #[rule(Expr7 -> Expr8 IdOrCall)]
+    fn expr7_8suffix(e: Expr<'p>, suffix: Option<(Loc, Vec<Expr<'p>>)>) -> Expr<'p> {
+        match suffix {
+            Some((loc, arg)) => {
+                mk_expr(
+                    loc,
+                    Call {
+                        func: Box::new(e),
+                        arg,
+                        func_ref: dft(),
+                    }
+                    .into(),
+                )
+            },
+            None => e,
+        }
+    }
+
+    */
 
     #[rule(ParenOrCast -> Expr RPar Term8)]
     fn paren_or_cast_p(l: Expr<'p>, _r: Token, ts: Vec<IndexOrIdOrCall<'p>>) -> Expr<'p> {
@@ -997,6 +1101,52 @@ impl<'p> Parser<'p> {
     fn new_class_or_array_c(name: Token, _l: Token, _r: Token) -> NewClassOrArray<'p> {
         NewClassOrArray::NewClass(name.str())
     }
+
+
+    #[rule(NewClassOrArray -> SimpleType NewSuffix)]
+    fn new_class_or_array_type(mut ty: SynTy<'p>, mut suffix: (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>)) -> NewClassOrArray<'p> {
+        ty.arr = 0;
+        let loc = ty.loc;
+        let mut cur_synty = ty;
+        for k in 0..suffix.0.len() {
+            cur_synty.arr = suffix.0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut suffix.0[k].1);
+            cur_synty = SynTy { loc: loc, arr: 0, kind: SynTyKind::Lambda(param) };
+        }
+        
+        cur_synty.arr = suffix.1;
+        NewClassOrArray::NewArray(cur_synty, suffix.2)
+    }
+
+    #[rule(NewSuffix -> LBrk NewSuffix0)]
+    fn newsuffix_lbrk(l: Token, suffix: (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>)) -> (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>) {
+        suffix
+    }
+
+    #[rule(NewSuffix -> LPar TypeListOrEmpty RPar NewSuffix)]
+    fn newsuffix_lpar(_l: Token, ty_list: Vec<SynTy<'p>>, _r: Token, mut suffix: (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>)) -> (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>) {
+        let mut res = vec![(0, ty_list)];
+        res.append(&mut suffix.0);
+        (res, suffix.1, suffix.2)
+    }
+
+    #[rule(NewSuffix0 -> RBrk NewSuffix)]
+    fn newsuffix0_rbrk(r: Token, mut suffix: (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>)) -> (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>) {
+        if suffix.0.len() == 0 {
+            (suffix.0, suffix.1 + 1, suffix.2)
+        } else {
+            suffix.0[0].0 += 1;
+            suffix
+        }
+    }
+
+    #[rule(NewSuffix0 -> Expr RBrk)]
+    fn newsuffix0_expr(e: Expr<'p>, r: Token) -> (Vec<(u32, Vec<SynTy<'p>>)>, u32, Expr<'p>) {
+        (vec![], 0, e)
+    }
+
+    /*
     #[rule(NewClassOrArray -> SimpleType LBrk NewArrayRem)]
     fn new_class_or_array_a(
         mut ty: SynTy<'p>,
@@ -1014,6 +1164,16 @@ impl<'p> Parser<'p> {
     #[rule(NewArrayRem -> Expr RBrk)]
     fn new_array_rem0(len: Expr<'p>, _r: Token) -> (u32, Expr<'p>) {
         (0, len)
+    }
+    */
+
+    #[rule(ArrayDim -> LBrk RBrk ArrayDim)]
+    fn array_type(l: Token, _r: Token, dim: u32) -> u32 {
+        dim + 1
+    }
+    #[rule(ArrayDim ->)]
+    fn array_type0() -> u32 {
+        0
     }
 
     #[rule(SimpleType -> Int)]
@@ -1056,17 +1216,141 @@ impl<'p> Parser<'p> {
             kind: SynTyKind::Named(name.str()),
         }
     }
+
+    /***try
+    #[rule(SimpleType0 -> ArrayDim LPar TypeListOrEmpty RPar SimpleType0)]
+    fn type_simple0(dim: u32, _l: Token, t_list: Vec<SynTy<'p>>, _r: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> Vec<(u32, Vec<SynTy<'p>>)> {
+        let mut v = vec![(dim, t_list)];
+        v.append(&mut sp_0);
+        v
+    }
+
+    #[rule(SimpleType0 -> )]
+    fn type_simple_empty() -> Vec<(u32, Vec<SynTy<'p>>)> {
+        vec![]
+    }
+
+
+    #[rule(SimpleType -> Int SimpleType0)]
+    fn type_simple_int(i: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> SynTy<'p> {
+        let mut cur_synty = SynTy { loc: i.loc(), arr: 0, kind: SynTyKind::Int };
+        for k in 0..sp_0.len() {
+            cur_synty.arr = sp_0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut sp_0[k].1);
+            cur_synty = SynTy { loc: i.loc(), arr: 0, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
+    }
+
+    #[rule(SimpleType -> Bool SimpleType0)]
+    fn type_simple_int(b: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> SynTy<'p> {
+        let mut cur_synty = SynTy { loc: b.loc(), arr: 0, kind: SynTyKind::Bool };
+        for k in 0..sp_0.len() {
+            cur_synty.arr = sp_0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut sp_0[k].1);
+            cur_synty = SynTy { loc: b.loc(), arr: 0, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
+    }
+
+    #[rule(SimpleType -> Void SimpleType0)]
+    fn type_simple_int(v: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> SynTy<'p> {
+        let mut cur_synty = SynTy { loc: v.loc(), arr: 0, kind: SynTyKind::Void };
+        for k in 0..sp_0.len() {
+            cur_synty.arr = sp_0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut sp_0[k].1);
+            cur_synty = SynTy { loc: v.loc(), arr: 0, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
+    }
+
+    #[rule(SimpleType -> String SimpleType0)]
+    fn type_simple_int(s: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> SynTy<'p> {
+        let mut cur_synty = SynTy { loc: s.loc(), arr: 0, kind: SynTyKind::String };
+        for k in 0..sp_0.len() {
+            cur_synty.arr = sp_0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut sp_0[k].1);
+            cur_synty = SynTy { loc: s.loc(), arr: 0, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
+    }
+
+    #[rule(SimpleType -> Class Id SimpleType0)]
+    fn type_simple_int(c: Token, name: Token, mut sp_0: Vec<(u32, Vec<SynTy<'p>>)>) -> SynTy<'p> {
+        let mut cur_synty = SynTy { loc: c.loc(), arr: 0, kind: SynTyKind::Named(name.str()) };
+        for k in 0..sp_0.len() {
+            cur_synty.arr = sp_0[k].0;
+            let mut param = vec![cur_synty];
+            param.append(&mut sp_0[k].1);
+            cur_synty = SynTy { loc: c.loc(), arr: 0, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
+    }
+    */
+
+
+    /***
     #[rule(Type -> SimpleType ArrayDim)]
     fn type_array(mut ty: SynTy<'p>, dim: u32) -> SynTy<'p> {
         (ty.arr = dim, ty).1
     }
+    ***/
 
-    #[rule(ArrayDim -> LBrk RBrk ArrayDim)]
-    fn array_type(l: Token, _r: Token, dim: u32) -> u32 {
-        dim + 1
+    #[rule(Type -> SimpleType ArrayDim Type0)]
+    fn type_complex(mut ty: SynTy<'p>, dim: u32, mut ty_list: Vec<(Vec<SynTy<'p>>, u32)>) -> SynTy<'p> {
+        ty.arr = dim;
+        let loc = ty.loc;
+        let mut cur_synty = ty;
+        for k in 0..ty_list.len() {
+            let mut param = vec![cur_synty];
+            param.append(&mut ty_list[k].0);
+            cur_synty = SynTy { loc: loc, arr: ty_list[k].1, kind: SynTyKind::Lambda(param)};
+        }
+        cur_synty
     }
-    #[rule(ArrayDim ->)]
-    fn array_type0() -> u32 {
-        0
+
+    #[rule(Type0 -> LPar TypeListOrEmpty RPar ArrayDim Type0)]
+    fn type_type0(_l: Token, param: Vec<SynTy<'p>>, _r: Token, dim: u32, mut ty0: Vec<(Vec<SynTy<'p>>, u32)>) -> Vec<(Vec<SynTy<'p>>, u32)> {
+        let mut res = vec![(param, dim)];
+        res.append(&mut ty0);
+        res
+    }
+
+    #[rule(Type0 -> )]
+    fn type_type0_empty() -> Vec<(Vec<SynTy<'p>>, u32)> {
+        vec![]
+    }
+
+    #[rule(TypeList -> Type TypeList0)]
+    fn type_list(t: SynTy<'p>, mut t_list: Vec<SynTy<'p>>) -> Vec<SynTy<'p>> {
+        let mut v = vec![t];
+        v.append(&mut t_list);
+        v
+    }
+
+    #[rule(TypeList0 -> Comma Type TypeList0)]
+    fn type_list0_non_empty(_c: Token, t: SynTy<'p>, mut t_list: Vec<SynTy<'p>>) -> Vec<SynTy<'p>> {
+        let mut v = vec![t];
+        v.append(&mut t_list);
+        v
+    }
+    
+    #[rule(TypeList0 -> )]
+    fn type_list0_empty() -> Vec<SynTy<'p>> {
+        vec![]
+    }
+
+    #[rule(TypeListOrEmpty -> TypeList)]
+    fn type_listorempty(param: Vec<SynTy<'p>>) -> Vec<SynTy<'p>> {
+        param
+    }
+
+    #[rule(TypeListOrEmpty -> )]
+    fn type_listorempty() -> Vec<SynTy<'p>> {
+        vec![]
     }
 }
