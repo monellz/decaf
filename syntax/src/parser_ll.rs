@@ -66,6 +66,7 @@ impl<'p> Parser<'p> {
             x
         } else {
             self.error(lookahead, lexer.loc());
+            //recover
             if end.contains(&(lookahead.ty as u32)) {
                 return StackItem::_Fail;
             }
