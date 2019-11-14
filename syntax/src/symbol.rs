@@ -1,4 +1,4 @@
-use crate::{show_func_ty, Block, ClassDef, FuncDef, Program, Ty, VarDef};
+use crate::{Block, ClassDef, FuncDef, Program, Ty, VarDef};
 use common::{HashMap, Loc};
 use std::{
     cell::{Ref, RefMut},
@@ -13,6 +13,64 @@ pub enum Symbol<'a> {
     Func(&'a FuncDef<'a>),
     This(&'a FuncDef<'a>),
     Class(&'a ClassDef<'a>),
+}
+
+impl<'a> Symbol<'a> {
+    pub fn name(&self) -> &'a str {
+        match self {
+            Symbol::Var(v) => v.name,
+            Symbol::Func(f) => f.name,
+            Symbol::This(_) => "this",
+            Symbol::Class(c) => c.name,
+        }
+    }
+
+    pub fn loc(&self) -> Loc {
+        match self {
+            Symbol::Var(v) => v.loc,
+            Symbol::Func(f) | Symbol::This(f) => f.loc,
+            Symbol::Class(c) => c.loc,
+        }
+    }
+
+    // for symbol This & Class, will return the type of their class object
+    pub fn ty(&self) -> Ty<'a> {
+        match self {
+            Symbol::Var(v) => v.ty.get(),
+            Symbol::Func(f) => Ty::mk_func(f),
+            Symbol::This(f) => Ty::mk_obj(f.class.get().unwrap()),
+            Symbol::Class(c) => Ty::mk_obj(c),
+        }
+    }
+
+    pub fn is_var(&self) -> bool {
+        if let Symbol::Var(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_func(&self) -> bool {
+        if let Symbol::Func(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_this(&self) -> bool {
+        if let Symbol::This(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_class(&self) -> bool {
+        if let Symbol::Class(_) = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -66,33 +124,11 @@ impl<'a> ScopeOwner<'a> {
             false
         }
     }
-}
-
-impl<'a> Symbol<'a> {
-    pub fn name(&self) -> &'a str {
-        match self {
-            Symbol::Var(v) => v.name,
-            Symbol::Func(f) => f.name,
-            Symbol::This(_) => "this",
-            Symbol::Class(c) => c.name,
-        }
-    }
-
-    pub fn loc(&self) -> Loc {
-        match self {
-            Symbol::Var(v) => v.loc,
-            Symbol::Func(f) | Symbol::This(f) => f.loc,
-            Symbol::Class(c) => c.loc,
-        }
-    }
-
-    // for symbol This & Class, will return the type of their class object
-    pub fn ty(&self) -> Ty<'a> {
-        match self {
-            Symbol::Var(v) => v.ty.get(),
-            Symbol::Func(f) => Ty::mk_func(f),
-            Symbol::This(f) => Ty::mk_obj(f.class.get().unwrap()),
-            Symbol::Class(c) => Ty::mk_obj(c),
+    pub fn is_global(&self) -> bool {
+        if let ScopeOwner::Global(_) = self {
+            true
+        } else {
+            false
         }
     }
 }
@@ -112,16 +148,14 @@ impl fmt::Debug for Symbol<'_> {
                 v.name,
                 v.ty.get()
             ),
-            Symbol::Func(fu) => {
-                write!(
-                    f,
-                    "{:?} -> {}function {} : ",
-                    fu.loc,
-                    if fu.static_ { "STATIC " } else { "" },
-                    fu.name
-                )?;
-                show_func_ty(fu.param.iter().map(|v| v.ty.get()), fu.ret_ty(), false, f)
-            }
+            Symbol::Func(fu) => write!(
+                f,
+                "{:?} -> {}function {} : {:?}",
+                fu.loc,
+                if fu.static_ { "STATIC " } else { "" },
+                fu.name,
+                Ty::mk_func(fu)
+            ),
             Symbol::This(fu) => write!(
                 f,
                 "{:?} -> variable @this : class {}",

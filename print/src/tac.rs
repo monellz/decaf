@@ -50,10 +50,8 @@ pub fn write_tac(t: &TacKind, pr: &TacProgram, p: &mut IndentPrinter) {
         Call { dst, kind } => write!(
             p,
             "{}call {}",
-            match dst {
-                Some(dst) => format!("_T{} = ", dst),
-                None => "".to_owned(),
-            },
+            dst.map(|dst| format!("_T{} = ", dst))
+                .unwrap_or(String::new()),
             match kind {
                 CallKind::Virtual(fp, _) => opr(&fp[0]),
                 CallKind::Static(f, _) => format!("{:?}", pr.func[*f as usize].name),

@@ -398,10 +398,8 @@ impl<'a> TacGen<'a> {
                                 kind: CallKind::Static(self.func_info[&Ref(fu)].idx, hint),
                             });
                         } else {
-                            let owner = match &v.owner {
-                                Some(o) => self.expr(o, f),
-                                None => Reg(0), // this(i.owner is not set during typeck)
-                            };
+                            // Reg(0) is `this`
+                            let owner = v.owner.as_ref().map(|o| self.expr(o, f)).unwrap_or(Reg(0));
                             f.push(Param { src: [owner] });
                             for a in args {
                                 f.push(Param { src: [a] });

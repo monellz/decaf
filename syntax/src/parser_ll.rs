@@ -892,12 +892,10 @@ impl<'p> Parser<'p> {
     fn expr7_par_or_cast(_l: Token, e: Expr<'p>) -> Expr<'p> {
         e
     }
-
     #[rule(Expr7 -> Expr8)]
     fn expr7_8(e: Expr<'p>) -> Expr<'p> {
         e
     }
-
 
     #[rule(ParenOrCast -> Expr RPar Term8)]
     fn paren_or_cast_p(l: Expr<'p>, _r: Token, ts: Vec<IndexOrIdOrCall<'p>>) -> Expr<'p> {

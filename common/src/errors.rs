@@ -24,8 +24,9 @@ impl<'a, Ty> Errors<'a, Ty> {
         Default::default()
     }
 
+    // guarantee to be stable, because there may be multiple errors in one loc
     pub fn sorted(mut self) -> Self {
-        self.0.sort_unstable_by_key(|e| e.0);
+        self.0.sort_by_key(|e| e.0);
         self
     }
 }
@@ -52,7 +53,6 @@ pub enum ErrorKind<'a, Ty> {
     },
     NoSuchClass(&'a str),
     CyclicInheritance,
-    SealedInheritance,
     NoMainClass,
     VoidArrayElement,
     VoidVar(&'a str),
@@ -105,9 +105,7 @@ pub enum ErrorKind<'a, Ty> {
         param: Ty,
     },
     ThisInStatic,
-    NotObject {
-        owner: Ty,
-    },
+    NotObject(Ty),
     BadPrintArg {
         loc: u32,
         ty: Ty,
@@ -119,7 +117,6 @@ pub enum ErrorKind<'a, Ty> {
     NewArrayNotInt,
     IndexNotArray,
     IndexNotInt,
-    UnreachableCode,
     NoReturn,
 }
 
@@ -140,7 +137,6 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             ),
             NoSuchClass(name) => write!(f, "class '{}' not found", name),
             CyclicInheritance => write!(f, "illegal class inheritance (should be acyclic)"),
-            SealedInheritance => write!(f, "illegal class inheritance from sealed class"),
             NoMainClass => write!(f, "no legal Main class named '{}' was found", MAIN_CLASS),
             VoidArrayElement => write!(f, "array element type must be non-void known type"),
             VoidVar(name) => write!(f, "cannot declare identifier '{}' as void type", name),
@@ -192,7 +188,7 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
                 loc, arg, param
             ),
             ThisInStatic => write!(f, "can not use this in static function"),
-            NotObject { owner } => write!(f, "{:?} is not a class type", owner),
+            NotObject(ty) => write!(f, "{:?} is not a class type", ty),
             BadPrintArg { loc, ty } => write!(
                 f,
                 "incompatible argument {}: {:?} given, int/bool/string expected",
@@ -206,7 +202,6 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             NewArrayNotInt => write!(f, "new array length must be an integer"),
             IndexNotArray => write!(f, "[] can only be applied to arrays"),
             IndexNotInt => write!(f, "array subscript must be an integer"),
-            UnreachableCode => write!(f, "unreachable code"),
             NoReturn => write!(
                 f,
                 "missing return statement: control reaches end of non-void block"
