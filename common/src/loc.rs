@@ -9,16 +9,18 @@ pub struct Loc(pub u32, pub u32);
 pub const NO_LOC: Loc = Loc(0, 0);
 
 impl Loc {
-  pub fn next_line(&mut self) {
-    self.0 += 1;
-    self.1 = 1;
-  }
+    pub fn next_line(&mut self) {
+        self.0 += 1;
+        self.1 = 1;
+    }
 
-  pub fn next_col(&mut self) { self.1 += 1; }
+    pub fn next_col(&mut self) {
+        self.1 += 1;
+    }
 }
 
 impl fmt::Debug for Loc {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "({},{})", self.0, self.1)
-  }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({},{})", self.0, self.1)
+    }
 }
