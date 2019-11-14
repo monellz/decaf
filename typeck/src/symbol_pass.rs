@@ -180,7 +180,7 @@ impl<'a> SymbolPass<'a> {
     }
 
     fn var_def(&mut self, v: &'a VarDef<'a>) {
-        v.ty.set(self.ty(&v.syn_ty, false));
+        v.ty.set(self.ty(&v.syn_ty.as_ref().unwrap(), false));
         if v.ty.get() == Ty::void() {
             self.issue(v.loc, VoidVar(v.name))
         }
