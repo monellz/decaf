@@ -69,10 +69,7 @@ fn mk_bin<'p>(l: Expr<'p>, r: Expr<'p>, loc: Loc, op: BinOp) -> Expr<'p> {
 #[lex(
     r##"
 priority = [
-<<<<<<< HEAD
   { assoc = 'left', terms = ['RightArrow'] },
-=======
->>>>>>> right
   { assoc = 'left', terms = ['Or'] },
   { assoc = 'left', terms = ['And'] },
   { assoc = 'left', terms = ['Eq', 'Ne'] },
@@ -90,10 +87,7 @@ priority = [
 'int' = 'Int'
 'bool' = 'Bool'
 'string' = 'String'
-<<<<<<< HEAD
 'var' = 'Var'
-=======
->>>>>>> right
 'new' = 'New'
 'null' = 'Null'
 'true' = 'True'
@@ -111,14 +105,10 @@ priority = [
 'ReadInteger' = 'ReadInteger'
 'ReadLine' = 'ReadLine'
 'static' = 'Static'
-<<<<<<< HEAD
 'abstract' = 'Abstract'
 'instanceof' = 'InstanceOf'
 'fun' = 'Fun'
 '=>' = 'RightArrow'
-=======
-'instanceof' = 'InstanceOf'
->>>>>>> right
 '<=' = 'Le'
 '>=' = 'Ge'
 '==' = 'Eq'
@@ -187,7 +177,6 @@ impl<'p> Parser<'p> {
             loc: c.loc(),
             name: name.str(),
             parent,
-<<<<<<< HEAD
             abstract_: false,
             field,
             parent_ref: dft(),
@@ -211,8 +200,6 @@ impl<'p> Parser<'p> {
             name: name.str(),
             parent,
             abstract_: true, 
-=======
->>>>>>> right
             field,
             parent_ref: dft(),
             scope: dft(),
@@ -241,7 +228,6 @@ impl<'p> Parser<'p> {
         vec![]
     }
 
-<<<<<<< HEAD
     #[rule(FuncDef -> Abstract Type Id LPar VarDefListOrEmpty RPar Semi)]
     fn func_def1(
         &self,
@@ -267,8 +253,6 @@ impl<'p> Parser<'p> {
         })
     }
  
-=======
->>>>>>> right
     #[rule(FuncDef -> Static Type Id LPar VarDefListOrEmpty RPar Block)]
     fn func_def1(
         &self,
@@ -286,12 +270,8 @@ impl<'p> Parser<'p> {
             ret,
             param,
             static_: true,
-<<<<<<< HEAD
             abstract_: false,
             body: Some(body),
-=======
-            body,
->>>>>>> right
             ret_param_ty: dft(),
             class: dft(),
             scope: dft(),
@@ -313,12 +293,8 @@ impl<'p> Parser<'p> {
             ret,
             param,
             static_: false,
-<<<<<<< HEAD
             abstract_: false,
             body: Some(body),
-=======
-            body,
->>>>>>> right
             ret_param_ty: dft(),
             class: dft(),
             scope: dft(),
@@ -331,11 +307,7 @@ impl<'p> Parser<'p> {
         self.alloc.var.alloc(VarDef {
             loc: name.loc(),
             name: name.str(),
-<<<<<<< HEAD
             syn_ty: Some(syn_ty),
-=======
-            syn_ty,
->>>>>>> right
             init: None,
             ty: dft(),
             owner: dft(),
@@ -488,11 +460,7 @@ impl<'p> Parser<'p> {
             (&*self.alloc.var.alloc(VarDef {
                 loc,
                 name: name.str(),
-<<<<<<< HEAD
                 syn_ty: Some(syn_ty),
-=======
-                syn_ty,
->>>>>>> right
                 init: Some((a.loc(), init)),
                 ty: dft(),
                 owner: dft(),
@@ -500,7 +468,6 @@ impl<'p> Parser<'p> {
                 .into(),
         )
     }
-<<<<<<< HEAD
     #[rule(Simple -> Var Id Assign Expr)] // type inference(must init)
     fn simple_var_def_init(
         &self,
@@ -524,8 +491,6 @@ impl<'p> Parser<'p> {
         )
     }
  
-=======
->>>>>>> right
     #[rule(Simple -> Expr)]
     fn simple_mk_expr(e: Expr<'p>) -> Stmt<'p> {
         mk_stmt(e.loc, e.into())
@@ -539,10 +504,7 @@ impl<'p> Parser<'p> {
     fn expr_lvalue(l: Expr<'p>) -> Expr<'p> {
         l
     }
-<<<<<<< HEAD
     /*
-=======
->>>>>>> right
     #[rule(Expr -> VarSel LPar ExprListOrEmpty RPar)]
     fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
         mk_expr(
@@ -555,7 +517,6 @@ impl<'p> Parser<'p> {
             .into(),
         )
     }
-<<<<<<< HEAD
     */
     #[rule(Expr -> Expr LPar ExprListOrEmpty RPar)]
     fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
@@ -570,8 +531,6 @@ impl<'p> Parser<'p> {
         )
     }
  
-=======
->>>>>>> right
     #[rule(Expr -> IntLit)]
     fn expr_int(&mut self, i: Token) -> Expr<'p> {
         mk_int_lit(i.loc(), i.str(), &mut self.error)
@@ -590,7 +549,6 @@ impl<'p> Parser<'p> {
         check_str(str, &mut self.error, loc);
         mk_expr(loc, str[1..str.len() - 1].into())
     }
-<<<<<<< HEAD
     #[rule(Expr -> Fun LPar VarDefListOrEmpty RPar RightArrow Expr)]
     fn expr_lambda(
         f: Token,
@@ -626,8 +584,6 @@ impl<'p> Parser<'p> {
             .into(),
         )
     }
-=======
->>>>>>> right
     #[rule(Expr -> Null)]
     fn expr_null(n: Token) -> Expr<'p> {
         mk_expr(n.loc(), NullLit.into())
@@ -877,7 +833,6 @@ impl<'p> Parser<'p> {
     fn type_array(mut ty: SynTy<'p>, _l: Token, _r: Token) -> SynTy<'p> {
         (ty.arr += 1, ty).1
     }
-<<<<<<< HEAD
     //TypeList is not empty
     #[rule(Type -> Type LPar TypeListOrEmpty RPar)]
     fn type_lambda(ret: SynTy<'p>, _l: Token, mut param: Vec<SynTy<'p>>, _r: Token) -> SynTy<'p> {
@@ -906,6 +861,4 @@ impl<'p> Parser<'p> {
     fn type_list0(t: SynTy<'p>) -> Vec<SynTy<'p>> {
         vec![t]
     }    
-=======
->>>>>>> right
 }
