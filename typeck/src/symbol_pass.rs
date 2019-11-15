@@ -146,18 +146,7 @@ impl<'a> SymbolPass<'a> {
 
             if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a none func body")); }
             else { class_abs_func_set.insert(f.name); }
-            /*
-            if !f.abstract_ {
-                //check override
-                let override = !f.static_ && 
-                if !f.static_ { class_abs_func_set.remove(f.name); }
-                //s.block(&f.body.as_ref().unwrap());
-                s.block(&f.body.as_ref().expect("unwrap a none func body in if !f.abstract_"));
-            } else {
-                //assert!(class_abs_func_set.insert(f.name), "cannot have 2 abs func with same name");
-                class_abs_func_set.insert(f.name);
-            }
-            */
+
         });
         let ret_param_ty = iter::once(ret_ty).chain(f.param.iter().map(|v| v.ty.get()));
         let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
