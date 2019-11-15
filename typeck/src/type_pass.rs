@@ -32,9 +32,11 @@ impl<'a> TypePass<'a> {
             for f in &c.field {
                 if let FieldDef::FuncDef(f) = f {
                     s.cur_func = Some(f);
-                    let ret = s.scoped(ScopeOwner::Param(f), |s| s.block(&f.body.as_ref().unwrap()));
-                    if !ret && f.ret_ty() != Ty::void() {
-                        s.issue(f.body.as_ref().unwrap().loc, ErrorKind::NoReturn)
+                    //TODO: non block return false?
+                    let ret = s.scoped(ScopeOwner::Param(f), |s| if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a non func body")) } else { false });
+                    if !f.abstract_ && !ret && f.ret_ty() != Ty::void() {
+                        //func is not abstract & no block ret & f.ret_ty not void
+                        s.issue(f.body.as_ref().expect("unwrap a non func body").loc, ErrorKind::NoReturn)
                     }
                 };
             }
@@ -204,6 +206,10 @@ impl<'a> TypePass<'a> {
             }
             NewClass(n) => {
                 if let Some(c) = self.scopes.lookup_class(n.name) {
+                    //cannot instantiate abstract class
+                    if c.abstract_ {
+                        self.issue(e.loc, InstantiateAbstractClass(n.name))
+                    }
                     n.class.set(Some(c));
                     Ty::mk_obj(c)
                 } else {

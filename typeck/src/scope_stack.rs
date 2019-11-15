@@ -57,7 +57,7 @@ impl<'a> ScopeStack<'a> {
 
     // the global scope is not affected
     pub fn close(&mut self) {
-        let owner = self.stack.pop().unwrap();
+        let owner = self.stack.pop().expect("unwrap a non stack top item");
         if let ScopeOwner::Class(_) = owner {
             self.stack.clear(); // all scopes in the stack is its ancestors
         }

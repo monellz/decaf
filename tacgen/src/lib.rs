@@ -72,7 +72,7 @@ impl<'a> TacGen<'a> {
                         self.reg_cnt,
                         fu.ret_ty() != Ty::void(),
                     );
-                    self.block(&fu.body.as_ref().unwrap(), &mut f);
+                    self.block(&fu.body.as_ref().expect("tacgen unwrap a non body"), &mut f);
                     f.max_reg = self.reg_cnt;
                     // add an return at the end of return-void function
                     if fu.ret_ty() == Ty::void() {

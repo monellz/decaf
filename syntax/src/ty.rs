@@ -117,7 +117,7 @@ impl<'a> Ty<'a> {
         Ty::new(TyKind::Class(Ref(c)))
     }
     pub fn mk_func(f: &'a FuncDef<'a>) -> Ty<'a> {
-        Ty::new(TyKind::Func(f.ret_param_ty.get().unwrap()))
+        Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty")))
     }
 
     // if you want something like `is_void()`, just use `== Ty::void()`

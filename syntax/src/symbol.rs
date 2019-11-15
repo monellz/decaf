@@ -38,7 +38,7 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Var(v) => v.ty.get(),
             Symbol::Func(f) => Ty::mk_func(f),
-            Symbol::This(f) => Ty::mk_obj(f.class.get().unwrap()),
+            Symbol::This(f) => Ty::mk_obj(f.class.get().expect("unwrap a non class")),
             Symbol::Class(c) => Ty::mk_obj(c),
         }
     }
@@ -140,7 +140,7 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> variable {}{} : {:?}",
                 v.loc,
-                if v.owner.get().unwrap().is_param() {
+                if v.owner.get().expect("unwrap a non owner").is_param() {
                     "@"
                 } else {
                     ""
@@ -152,7 +152,7 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> {}function {} : {:?}",
                 fu.loc,
-                if fu.static_ { "STATIC " } else { "" },
+                if fu.static_ { "STATIC " } else if fu.abstract_ { "ABSTRACT " } else { "" },
                 fu.name,
                 Ty::mk_func(fu)
             ),
@@ -160,10 +160,10 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> variable @this : class {}",
                 fu.loc,
-                fu.class.get().unwrap().name
+                fu.class.get().expect("unwrap a non class").name
             ),
             Symbol::Class(c) => {
-                write!(f, "{:?} -> class {}", c.loc, c.name)?;
+                write!(f, "{:?} -> {}class {}", c.loc, if c.abstract_ { "ABSTRACT "} else { "" }, c.name)?;
                 if let Some(p) = c.parent_ref.get() {
                     write!(f, " : {}", p.name)
                 } else {

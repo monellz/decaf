@@ -41,6 +41,10 @@ impl<Ty: fmt::Debug> fmt::Debug for Error<'_, Ty> {
 }
 
 pub enum ErrorKind<'a, Ty> {
+    //abstract
+    NotOverrideAllAbstractFunc(&'a str),
+    InstantiateAbstractClass(&'a str),
+
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
     InvalidEscape,
@@ -124,6 +128,9 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ErrorKind::*;
         match self {
+            NotOverrideAllAbstractFunc(name) => write!(f, "'{}' is not abstract and does not override all abstract methods", name),
+            InstantiateAbstractClass(name) => write!(f, "cannot instantiate abstract class '{}'", name),
+
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),
             InvalidEscape => write!(f, "illegal escape character"),
