@@ -66,10 +66,30 @@ impl<'a> TypePass<'a> {
             StmtKind::LocalVarDef(v) => {
                 self.cur_var_def = Some(v);
                 if let Some((loc, e)) = &v.init {
+                    match &v.syn_ty {
+                        Some(_) => {
+                            let (l, r) = (v.ty.get(), self.expr(e));
+                            if !r.assignable_to(l) {
+                                self.issue(*loc, IncompatibleBinary { l, op: "=", r })
+                            }
+                        },
+                        None => {
+                            //type inference check
+                            let r = self.expr(e);
+                            if let TyKind::Void = r.kind {
+                                self.issue(v.loc, InferVoid(v.name))
+                            } else {
+                                v.ty.set(r);
+                            }
+                        }
+
+                    }
+                    /*
                     let (l, r) = (v.ty.get(), self.expr(e));
                     if !r.assignable_to(l) {
                         self.issue(*loc, IncompatibleBinary { l, op: "=", r })
                     }
+                    */
                 }
                 self.cur_var_def = None;
                 false

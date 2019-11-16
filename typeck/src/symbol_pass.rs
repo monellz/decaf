@@ -206,10 +206,19 @@ impl<'a> SymbolPass<'a> {
     }
 
     fn var_def(&mut self, v: &'a VarDef<'a>) {
+        //type inference is delayed to type_pass
+        if let Some(syn_ty) = &v.syn_ty {
+            v.ty.set(self.ty(&syn_ty, false));
+            if v.ty.get() == Ty::void() {
+                self.issue(v.loc, VoidVar(v.name))
+            }
+        }
+        /*
         v.ty.set(self.ty(&v.syn_ty.as_ref().expect("unwrap a non syn_ty"), false));
         if v.ty.get() == Ty::void() {
             self.issue(v.loc, VoidVar(v.name))
         }
+        */
         let ok = if let Some((sym, owner)) = self.scopes.lookup(v.name) {
             match (self.scopes.cur_owner(), owner) {
                 (ScopeOwner::Class(c1), ScopeOwner::Class(c2))

@@ -44,6 +44,8 @@ pub enum ErrorKind<'a, Ty> {
     //abstract
     NotOverrideAllAbstractFunc(&'a str),
     InstantiateAbstractClass(&'a str),
+    //var
+    InferVoid(&'a str),
 
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
@@ -130,6 +132,8 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
         match self {
             NotOverrideAllAbstractFunc(name) => write!(f, "'{}' is not abstract and does not override all abstract methods", name),
             InstantiateAbstractClass(name) => write!(f, "cannot instantiate abstract class '{}'", name),
+
+            InferVoid(name) => write!(f, "cannot declare identifier '{}' as void type", name),
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),
