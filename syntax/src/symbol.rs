@@ -117,6 +117,7 @@ impl<'a> ScopeOwner<'a> {
             false
         }
     }
+
     pub fn is_class(&self) -> bool {
         if let ScopeOwner::Class(_) = self {
             true

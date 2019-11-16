@@ -12,6 +12,13 @@ use typed_arena::Arena;
 #[derive(Default)]
 pub struct TypeCkAlloc<'a> {
     pub ty: Arena<Ty<'a>>,
+    pub arr_ty: Arena<Vec<Ty<'a>>>,
+}
+
+
+#[derive(Default)]
+pub struct TypeArrCkAlloc<'a> {
+    pub ty_arr: Arena<Vec<Ty<'a>>>,
 }
 
 pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Errors<'a, Ty<'a>>> {
@@ -51,6 +58,7 @@ struct TypeCk<'a> {
     // this can reject code like `int a = a;`
     cur_var_def: Option<&'a VarDef<'a>>,
     alloc: &'a TypeCkAlloc<'a>,
+    //arr_alloc: &'a TypeArrCkAlloc<'a>,
 }
 
 impl<'a> TypeCk<'a> {
@@ -68,7 +76,19 @@ impl<'a> TypeCk<'a> {
                     self.issue(s.loc, NoSuchClass(name))
                 }
             },
-            SynTyKind::Lambda(_) => unimplemented!()
+            SynTyKind::Lambda(lam) => {
+                //let mut args = vec![self.ty(&lam[lam.len() - 1], false)];
+                let mut args = vec![];
+                args.push(self.ty(&lam[0], false));
+                for i in 1..lam.len() {
+                    if lam[i].kind == SynTyKind::Void {
+                        self.issue(lam[i].loc, NonVoidArgType)
+                    }
+                    args.push(self.ty(&lam[i], false));
+                }
+                let a = self.alloc.arr_ty.alloc(args);
+                TyKind::Func(a)
+            }
         };
         match kind {
             TyKind::Error => Ty::error(),

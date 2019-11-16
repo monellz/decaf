@@ -70,6 +70,7 @@ impl<'a> TypePass<'a> {
                         Some(_) => {
                             let (l, r) = (v.ty.get(), self.expr(e));
                             if !r.assignable_to(l) {
+                                println!("{:?}, {:?}", r, l);
                                 self.issue(*loc, IncompatibleBinary { l, op: "=", r })
                             }
                         },
@@ -170,7 +171,24 @@ impl<'a> TypePass<'a> {
                     e => e.error_or(|| self.issue(i.arr.loc, IndexNotArray)),
                 }
             },
-            Lambda(_) => unimplemented!(),
+            Lambda(_) => {
+                /*
+                let ret_ty = self.ty(&f.ret, false);
+                self.scoped(ScopeOwner::Param(f), |s| {
+                    if !f.static_ {
+                        s.scopes.declare(Symbol::This(f));
+                    }
+                    for v in &f.param {
+                        s.var_def(v);
+                    }
+
+                    if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a none func body")); }
+                    else { class_abs_func_set.insert(f.name); }
+
+                });
+                */
+                unimplemented!();
+            },
             IntLit(_) | ReadInt(_) => Ty::int(),
             BoolLit(_) => Ty::bool(),
             StringLit(_) | ReadLine(_) => Ty::string(),

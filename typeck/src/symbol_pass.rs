@@ -272,7 +272,142 @@ impl<'a> SymbolPass<'a> {
                 }
             }),
             StmtKind::Block(b) => self.block(b),
-            _ => {}
+
+            //add
+            StmtKind::Assign(a) => self.expr(&a.src),
+            StmtKind::ExprEval(e) => self.expr(e),
+            StmtKind::Return(r) => {
+                if let Some(e) = r {
+                    self.expr(e);
+                }
+            },
+            StmtKind::Print(p) => {
+                for e in p {
+                    self.expr(e);
+                }
+            },
+            _ => {},
         };
+    }
+
+
+    fn expr(&mut self, e: &'a Expr<'a>) {
+        /*
+        use ExprKind::*;
+        let ty = match &e.kind {
+            VarSel(v) => self.var_sel(v, e.loc),
+            IndexSel(i) => {
+                let (arr, idx) = (self.expr(&i.arr), self.expr(&i.idx));
+                if idx != Ty::int() {
+                    idx.error_or(|| self.issue(e.loc, IndexNotInt))
+                }
+                match arr {
+                    Ty { arr, kind } if arr > 0 => Ty { arr: arr - 1, kind },
+                    e => e.error_or(|| self.issue(i.arr.loc, IndexNotArray)),
+                }
+            },
+            Lambda(_) => {
+                unimplemented!();
+            },
+            IntLit(_) | ReadInt(_) => Ty::int(),
+            BoolLit(_) => Ty::bool(),
+            StringLit(_) | ReadLine(_) => Ty::string(),
+            NullLit(_) => Ty::null(),
+            Call(c) => self.call(c, e.loc),
+            Unary(u) => {
+                let r = self.expr(&u.r);
+                let (ty, op) = match u.op {
+                    UnOp::Neg => (Ty::int(), "-"),
+                    UnOp::Not => (Ty::bool(), "!"),
+                };
+                if r != ty {
+                    r.error_or(|| self.issue(e.loc, IncompatibleUnary { op, r }))
+                }
+                ty
+            }
+            Binary(b) => {
+                use BinOp::*;
+                let (l, r) = (self.expr(&b.l), self.expr(&b.r));
+                if l == Ty::error() || r == Ty::error() {
+                    // not using wildcard match, so that if we add new operators in the future, compiler can tell us
+                    match b.op {
+                        Add | Sub | Mul | Div | Mod => Ty::int(),
+                        And | Or | Eq | Ne | Lt | Le | Gt | Ge => Ty::bool(),
+                    }
+                } else {
+                    let (ret, ok) = match b.op {
+                        Add | Sub | Mul | Div | Mod => {
+                            (Ty::int(), l == Ty::int() && r == Ty::int())
+                        }
+                        Lt | Le | Gt | Ge => (Ty::bool(), l == Ty::int() && r == Ty::int()),
+                        Eq | Ne => (Ty::bool(), l.assignable_to(r) || r.assignable_to(l)),
+                        And | Or => (Ty::bool(), l == Ty::bool() && r == Ty::bool()),
+                    };
+                    if !ok {
+                        self.issue(
+                            e.loc,
+                            IncompatibleBinary {
+                                l,
+                                op: b.op.to_op_str(),
+                                r,
+                            },
+                        )
+                    }
+                    ret
+                }
+            }
+            This(_) => {
+                if self.cur_func.unwrap().static_ {
+                    self.issue(e.loc, ThisInStatic)
+                }
+                Ty::mk_obj(self.cur_class.unwrap())
+            }
+            NewClass(n) => {
+                if let Some(c) = self.scopes.lookup_class(n.name) {
+                    //cannot instantiate abstract class
+                    if c.abstract_ {
+                        self.issue(e.loc, InstantiateAbstractClass(n.name))
+                    }
+                    n.class.set(Some(c));
+                    Ty::mk_obj(c)
+                } else {
+                    self.issue(e.loc, NoSuchClass(n.name))
+                }
+            }
+            NewArray(n) => {
+                let len = self.expr(&n.len);
+                if len != Ty::int() {
+                    len.error_or(|| self.issue(n.len.loc, NewArrayNotInt))
+                }
+                self.ty(&n.elem, true)
+            }
+            ClassTest(c) => {
+                let src = self.expr(&c.expr);
+                if !src.is_object() {
+                    src.error_or(|| self.issue(e.loc, NotObject(src)))
+                }
+                if let Some(cl) = self.scopes.lookup_class(c.name) {
+                    c.class.set(Some(cl));
+                    Ty::bool()
+                } else {
+                    self.issue(e.loc, NoSuchClass(c.name))
+                }
+            }
+            ClassCast(c) => {
+                let src = self.expr(&c.expr);
+                if !src.is_object() {
+                    src.error_or(|| self.issue(e.loc, NotObject(src)))
+                }
+                if let Some(cl) = self.scopes.lookup_class(c.name) {
+                    c.class.set(Some(cl));
+                    Ty::mk_obj(cl)
+                } else {
+                    self.issue(e.loc, NoSuchClass(c.name))
+                }
+            }
+        };
+        e.ty.set(ty);
+        ty
+        */
     }
 }

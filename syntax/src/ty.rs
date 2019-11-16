@@ -9,7 +9,7 @@ pub enum SynTyKind<'a> {
     String,
     Void,
     Named(&'a str),
-    //[0..size-2] param [size-1] ret
+    //[0] ret [1, size - 1] param
     Lambda(Vec<SynTy<'a>>),
 }
 
