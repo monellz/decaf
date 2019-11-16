@@ -768,7 +768,7 @@ impl<'p> Parser<'p> {
     ) -> Expr<'p> {
         mk_expr(
             _f.loc(),
-            Lambda {
+            LambdaDef {
                 param: param.reversed(),
                 kind,
             }

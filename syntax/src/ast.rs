@@ -179,7 +179,7 @@ pub enum ExprKind<'a> {
     BoolLit(bool),
     StringLit(&'a str),
     NullLit(NullLit),
-    Lambda(Lambda<'a>), //function type
+    Lambda(LambdaDef<'a>), //function type
     Call(Call<'a>),
     Unary(Unary<'a>),
     Binary(Binary<'a>),
@@ -211,7 +211,7 @@ pub struct Call<'a> {
     pub func_ref: Cell<Option<&'a FuncDef<'a>>>,
 }
 
-pub struct Lambda<'a> {
+pub struct LambdaDef<'a> {
     pub param: Vec<&'a VarDef<'a>>,
     pub kind: LambdaKind<'a>,
 }
