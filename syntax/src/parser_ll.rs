@@ -769,6 +769,7 @@ impl<'p> Parser<'p> {
         mk_expr(
             _f.loc(),
             LambdaDef {
+                name: format!("lambda@{:?}", _f.loc()),
                 param: param.reversed(),
                 kind,
             }

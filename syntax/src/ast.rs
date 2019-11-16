@@ -210,8 +210,9 @@ pub struct Call<'a> {
     pub arg: Vec<Expr<'a>>,
     pub func_ref: Cell<Option<&'a FuncDef<'a>>>,
 }
-
+ 
 pub struct LambdaDef<'a> {
+    pub name: String,
     pub param: Vec<&'a VarDef<'a>>,
     pub kind: LambdaKind<'a>,
 }

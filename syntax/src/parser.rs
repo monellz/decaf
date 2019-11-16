@@ -561,6 +561,7 @@ impl<'p> Parser<'p> {
         mk_expr(
             f.loc(),
             LambdaDef {
+                name: format!("lambda@{:?}", f.loc()),
                 param,
                 kind: LambdaKind::Expr(Box::new(e)),
             }
@@ -578,6 +579,7 @@ impl<'p> Parser<'p> {
         mk_expr(
             f.loc(),
             LambdaDef {
+                name: format!("lambda@{:?}", f.loc()),
                 param,
                 kind: LambdaKind::Block(block),
             }
