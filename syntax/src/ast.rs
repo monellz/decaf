@@ -212,6 +212,7 @@ pub struct Call<'a> {
 }
  
 pub struct LambdaDef<'a> {
+    pub loc: Loc,
     pub name: String,
     pub param: Vec<&'a VarDef<'a>>,
     pub kind: LambdaKind<'a>,
