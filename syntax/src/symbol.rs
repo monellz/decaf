@@ -1,4 +1,4 @@
-use crate::{Block, ClassDef, FuncDef, Program, Ty, VarDef};
+use crate::{Block, ClassDef, FuncDef, Program, Ty, VarDef, LambdaDef};
 use common::{HashMap, Loc};
 use std::{
     cell::{Ref, RefMut},
@@ -11,6 +11,7 @@ pub type Scope<'a> = HashMap<&'a str, Symbol<'a>>;
 pub enum Symbol<'a> {
     Var(&'a VarDef<'a>),
     Func(&'a FuncDef<'a>),
+    Lambda(&'a LambdaDef<'a>),
     This(&'a FuncDef<'a>),
     Class(&'a ClassDef<'a>),
 }
@@ -20,6 +21,7 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Var(v) => v.name,
             Symbol::Func(f) => f.name,
+            Symbol::Lambda(lam) => &lam.name,
             Symbol::This(_) => "this",
             Symbol::Class(c) => c.name,
         }
@@ -29,6 +31,7 @@ impl<'a> Symbol<'a> {
         match self {
             Symbol::Var(v) => v.loc,
             Symbol::Func(f) | Symbol::This(f) => f.loc,
+            Symbol::Lambda(lam) => lam.loc,
             Symbol::Class(c) => c.loc,
         }
     }
@@ -39,6 +42,7 @@ impl<'a> Symbol<'a> {
             Symbol::Var(v) => v.ty.get(),
             Symbol::Func(f) => Ty::mk_func(f),
             Symbol::This(f) => Ty::mk_obj(f.class.get().expect("unwrap a non class")),
+            Symbol::Lambda(lam) => Ty::mk_lambda(lam),
             Symbol::Class(c) => Ty::mk_obj(c),
         }
     }
@@ -57,6 +61,15 @@ impl<'a> Symbol<'a> {
             false
         }
     }
+
+    pub fn is_lambda(&self) -> bool {
+        if let Symbol::Lambda(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn is_this(&self) -> bool {
         if let Symbol::This(_) = self {
             true
@@ -77,6 +90,7 @@ impl<'a> Symbol<'a> {
 pub enum ScopeOwner<'a> {
     Local(&'a Block<'a>),
     Param(&'a FuncDef<'a>),
+    LambdaParam(&'a LambdaDef<'a>),
     Class(&'a ClassDef<'a>),
     Global(&'a Program<'a>),
 }
@@ -88,6 +102,7 @@ impl<'a> ScopeOwner<'a> {
         match self {
             Local(x) => x.scope.borrow(),
             Param(x) => x.scope.borrow(),
+            LambdaParam(x) => x.scope.borrow(),
             Class(x) => x.scope.borrow(),
             Global(x) => x.scope.borrow(),
         }
@@ -98,6 +113,7 @@ impl<'a> ScopeOwner<'a> {
         match self {
             Local(x) => x.scope.borrow_mut(),
             Param(x) => x.scope.borrow_mut(),
+            LambdaParam(x) => x.scope.borrow_mut(),
             Class(x) => x.scope.borrow_mut(),
             Global(x) => x.scope.borrow_mut(),
         }
@@ -117,6 +133,15 @@ impl<'a> ScopeOwner<'a> {
             false
         }
     }
+    pub fn is_lambda_param(&self) -> bool {
+        if let ScopeOwner::LambdaParam(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+
 
     pub fn is_class(&self) -> bool {
         if let ScopeOwner::Class(_) = self {
@@ -141,7 +166,7 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> variable {}{} : {:?}",
                 v.loc,
-                if v.owner.get().expect("unwrap a non owner").is_param() {
+                if v.owner.get().expect("unwrap a non owner").is_param() | v.owner.get().unwrap().is_lambda_param() {
                     "@"
                 } else {
                     ""
@@ -156,6 +181,13 @@ impl fmt::Debug for Symbol<'_> {
                 if fu.static_ { "STATIC " } else if fu.abstract_ { "ABSTRACT " } else { "" },
                 fu.name,
                 Ty::mk_func(fu)
+            ),
+            Symbol::Lambda(lam) => write!(
+                f,
+                "{:?} -> function {} : {:?}",
+                lam.loc,
+                lam.name,
+                Ty::mk_lambda(lam)
             ),
             Symbol::This(fu) => write!(
                 f,

@@ -771,8 +771,10 @@ impl<'p> Parser<'p> {
             LambdaDef {
                 loc: _f.loc(),
                 name: format!("lambda@{:?}", _f.loc()),
+                ret_param_ty: dft(),
                 param: param.reversed(),
                 kind,
+                scope: dft(),
             }
             .into(),
         )

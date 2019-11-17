@@ -12,14 +12,8 @@ use typed_arena::Arena;
 #[derive(Default)]
 pub struct TypeCkAlloc<'a> {
     pub ty: Arena<Ty<'a>>,
-    pub arr_ty: Arena<Vec<Ty<'a>>>,
 }
 
-
-#[derive(Default)]
-pub struct TypeArrCkAlloc<'a> {
-    pub ty_arr: Arena<Vec<Ty<'a>>>,
-}
 
 pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Errors<'a, Ty<'a>>> {
     let mut s = SymbolPass(TypeCk {
@@ -86,7 +80,7 @@ impl<'a> TypeCk<'a> {
                     }
                     args.push(self.ty(&lam[i], false));
                 }
-                let a = self.alloc.arr_ty.alloc(args);
+                let a = self.alloc.ty.alloc_extend(args);
                 TyKind::Func(a)
             }
         };

@@ -215,7 +215,9 @@ pub struct LambdaDef<'a> {
     pub loc: Loc,
     pub name: String,
     pub param: Vec<&'a VarDef<'a>>,
+    pub ret_param_ty: Cell<Option<&'a [Ty<'a>]>>,
     pub kind: LambdaKind<'a>,
+    pub scope: RefCell<Scope<'a>>,
 }
 
 pub enum LambdaKind<'a> {

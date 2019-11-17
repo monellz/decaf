@@ -563,8 +563,10 @@ impl<'p> Parser<'p> {
             LambdaDef {
                 loc: f.loc(),
                 name: format!("lambda@{:?}", f.loc()),
+                ret_param_ty: dft(),
                 param,
                 kind: LambdaKind::Expr(Box::new(e)),
+                scope: dft(),
             }
             .into(),
         )
@@ -582,8 +584,10 @@ impl<'p> Parser<'p> {
             LambdaDef {
                 loc: f.loc(),
                 name: format!("lambda@{:?}", f.loc()),
+                ret_param_ty: dft(),
                 param,
                 kind: LambdaKind::Block(block),
+                scope: dft(),
             }
             .into(),
         )

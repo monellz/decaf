@@ -49,6 +49,8 @@ pub enum ErrorKind<'a, Ty> {
 
     //lambda
     NonVoidArgType,
+    IncompatibleReturnType,
+    AssignToClassMethod(&'a str),
 
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
@@ -139,6 +141,8 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             InferVoid(name) => write!(f, "cannot declare identifier '{}' as void type", name),
 
             NonVoidArgType => write!(f, "arguments in function type must be non-void known type"),
+            IncompatibleReturnType => write!(f, "incompatible return types in blocked expression"),
+            AssignToClassMethod(func) => write!(f, "cannot assign value to class member method '{}'", func),
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),

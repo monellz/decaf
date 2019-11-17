@@ -44,6 +44,22 @@ pub fn func_def(f: &FuncDef, p: &mut IndentPrinter) {
     });
 }
 
+pub fn expr(e: &Expr, p: &mut IndentPrinter) {
+    if let ExprKind::Lambda(lam) = &e.kind {
+        write!(p, "FORMAL SCOPE OF '{}':", lam.name).ignore();
+        p.indent(|p| {
+            show_scope(&lam.scope.borrow(), p);
+            match &lam.kind {
+                LambdaKind::Expr(_) => {
+                    write!(p, "LOCAL SCOPE:").ignore();
+                    p.indent(|p| write!(p, "<empty>").ignore());
+                },
+                LambdaKind::Block(b) => block(b, p),
+            };
+        });
+    }
+}
+
 pub fn block(b: &Block, p: &mut IndentPrinter) {
     write!(p, "LOCAL SCOPE:").ignore();
     p.indent(|p| {
@@ -59,6 +75,24 @@ pub fn block(b: &Block, p: &mut IndentPrinter) {
                 StmtKind::While(w) => block(&w.body, p),
                 StmtKind::For(f) => block(&f.body, p),
                 StmtKind::Block(b) => block(b, p),
+                
+                //suport lambda
+                StmtKind::Assign(a) => {
+                    expr(&a.dst, p);
+                    expr(&a.src, p);
+                },
+                StmtKind::LocalVarDef(l) => {
+                    if let Some((_, e)) = &l.init {
+                        expr(e, p);
+                    }
+                }
+                StmtKind::ExprEval(e) => expr(e, p),
+                StmtKind::Return(ret) => {
+                    if let Some(e) = &ret { expr(e, p); }
+                },
+                StmtKind::Print(v) => {
+                    for e in v { expr(e, p); }
+                },
                 _ => {}
             }
         }

@@ -1,4 +1,4 @@
-use crate::{ClassDef, FuncDef};
+use crate::{ClassDef, FuncDef, LambdaDef};
 use common::{Loc, Ref};
 use std::fmt;
 
@@ -118,6 +118,10 @@ impl<'a> Ty<'a> {
     }
     pub fn mk_func(f: &'a FuncDef<'a>) -> Ty<'a> {
         Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty")))
+    }
+    
+    pub fn mk_lambda(f: &'a LambdaDef<'a>) -> Ty<'a> {
+        Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty for lambda")))
     }
 
     // if you want something like `is_void()`, just use `== Ty::void()`

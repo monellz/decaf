@@ -236,7 +236,7 @@ impl<'a> TacGen<'a> {
                 let var = v.var.get().unwrap();
                 let off = self.var_info[&Ref(var)].off;
                 match var.owner.get().unwrap() {
-                    ScopeOwner::Local(_) | ScopeOwner::Param(_) => {
+                    ScopeOwner::Local(_) | ScopeOwner::Param(_) | ScopeOwner::LambdaParam(_) => {
                         if let Some(src) = assign {
                             // off is register
                             // don't care this return, the below 0 is the same
