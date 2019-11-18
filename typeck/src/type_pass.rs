@@ -33,7 +33,7 @@ impl<'a> TypePass<'a> {
                 if let FieldDef::FuncDef(f) = f {
                     s.cur_func = Some(f);
                     //TODO: non block return false?
-                    let ret = s.scoped(ScopeOwner::Param(f), |s| if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a non func body")) } else { false });
+                    let ret = s.scoped(ScopeOwner::Param(f), |s| if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a non func body")).0 } else { false });
                     if !f.abstract_ && !ret && f.ret_ty() != Ty::void() {
                         //func is not abstract & no block ret & f.ret_ty not void
                         s.issue(f.body.as_ref().expect("unwrap a non func body").loc, ErrorKind::NoReturn)
@@ -43,18 +43,21 @@ impl<'a> TypePass<'a> {
         });
     }
 
-    fn block(&mut self, b: &'a Block<'a>) -> bool {
-        let mut ret = false;
+    fn block(&mut self, b: &'a Block<'a>) -> (bool, Vec<&'a Ty<'a>>) {
+        let mut last_stmt_ret = false;
+        let mut ret_list = Vec::new();
         self.scoped(ScopeOwner::Local(b), |s| {
             for st in &b.stmt {
-                ret = s.stmt(st);
+                let (ret, mut cur_ret_list) = s.stmt(st);
+                last_stmt_ret = ret;
+                ret_list.append(&mut cur_ret_list);
             }
         });
-        ret
+        (last_stmt_ret, ret_list)
     }
 
     // return whether this stmt has a return value
-    fn stmt(&mut self, s: &'a Stmt<'a>) -> bool {
+    fn stmt(&mut self, s: &'a Stmt<'a>) -> (bool, Vec<&'a Ty<'a>>) {
         match &s.kind {
             StmtKind::Assign(a) => {
                 let (l, r) = (self.expr(&a.dst), self.expr(&a.src));
@@ -64,9 +67,7 @@ impl<'a> TypePass<'a> {
 
                 if let ExprKind::VarSel(vs) = &a.dst.kind {
                     if let Some(owner) = &vs.owner {
-                        self.cur_used = true;
-                        let owner = self.expr(owner);
-                        self.cur_used = false;
+                        let owner = owner.ty.get();
                         match owner {
                             Ty { arr: 0, kind: TyKind::Object(Ref(c))} => {
                                 if let Some(sym) = c.lookup(vs.name) {
@@ -126,7 +127,7 @@ impl<'a> TypePass<'a> {
                     //println!("  not varsel loc = {:?}", a.dst.loc);
                 }
 
-                false
+                (false, vec![])
             }
             StmtKind::LocalVarDef(v) => {
                 self.cur_var_def = Some(v);
@@ -157,46 +158,48 @@ impl<'a> TypePass<'a> {
                     */
                 }
                 self.cur_var_def = None;
-                false
+                (false, vec![])
             }
             StmtKind::ExprEval(e) => {
                 self.expr(e);
-                false
+                (false, vec![])
             }
-            StmtKind::Skip(_) => false,
+            StmtKind::Skip(_) => (false, vec![]),
             StmtKind::If(i) => {
                 self.check_bool(&i.cond);
                 // `&` is not short-circuit evaluated
-                self.block(&i.on_true) & i.on_false.as_ref().map(|b| self.block(b)).unwrap_or(false)
+                let (true_last_ret, mut true_ret_list) = self.block(&i.on_true);
+                let (false_last_ret, mut false_ret_list) = i.on_false.as_ref().map(|b| self.block(b)).unwrap_or((false, vec![]));
+                true_ret_list.append(&mut false_ret_list);
+                (true_last_ret & false_last_ret, true_ret_list)
             }
             StmtKind::While(w) => {
                 self.check_bool(&w.cond);
                 self.loop_cnt += 1;
-                self.block(&w.body);
+                let (_, ret_list) = self.block(&w.body);
                 self.loop_cnt -= 1;
-                false
+                (false, ret_list)
             }
             StmtKind::For(f) => self.scoped(ScopeOwner::Local(&f.body), |s| {
                 s.stmt(&f.init);
                 s.check_bool(&f.cond);
                 s.stmt(&f.update);
+                let mut ret_list = vec![];
                 for st in &f.body.stmt {
-                    s.stmt(st);
+                    let (_, mut cur_ret_list) = s.stmt(st);
+                    ret_list.append(&mut cur_ret_list);
                 } // not calling block(), because the scope is already opened
-                false
+                (false, ret_list)
             }),
             StmtKind::Return(r) => {
-                let expect = if let Some(lam) = self.cur_lambda {
-                    lam.ret_ty()
-                } else {
-                    self.cur_func.unwrap().ret_ty()
-                };
-                //println!("loc = {:?}, self.cur_func.name = {} cur_lambda = {}", s.loc, self.cur_func.unwrap().name, self.cur_lambda.unwrap().name);
                 let actual = r.as_ref().map(|e| self.expr(e)).unwrap_or(Ty::void());
-                if !actual.assignable_to(expect) {
-                    self.issue(s.loc, ReturnMismatch { actual, expect })
+                if let None = self.cur_lambda {
+                    let expect = self.cur_func.unwrap().ret_ty();
+                    if !actual.assignable_to(expect) {
+                        self.issue(s.loc, ReturnMismatch { actual, expect })
+                    }
                 }
-                actual != Ty::void()
+                (actual != Ty::void(), vec![self.alloc.ty.alloc(actual)])
             }
             StmtKind::Print(p) => {
                 for (i, e) in p.iter().enumerate() {
@@ -213,13 +216,13 @@ impl<'a> TypePass<'a> {
                         })
                     }
                 }
-                false
+                (false, vec![])
             }
             StmtKind::Break(_) => {
                 if self.loop_cnt == 0 {
                     self.issue(s.loc, BreakOutOfLoop)
                 }
-                false
+                (false, vec![])
             }
             StmtKind::Block(b) => self.block(b),
         }
@@ -256,30 +259,21 @@ impl<'a> TypePass<'a> {
                         Ty::mk_lambda(lam)
                     },
                     LambdaKind::Block(b) => {
+                        let prev_lambda = self.cur_lambda;
+                        self.cur_lambda = Some(lam);
+                        let (_, mut ret_list) = self.scoped(ScopeOwner::LambdaParam(lam), |s| {
+                            s.block(&b)
+                        });
+                        self.cur_lambda = prev_lambda;
+                        
                         if let None = lam.ret_param_ty.get() {
-                            let mut ty_list = Vec::new();    
-                            //println!("start to cal ret_ty loc = {:?} name = {}", e.loc, lam.name);
-                            let prev_lambda = self.cur_lambda;
-                            self.cur_lambda = Some(lam);
-                            self.scoped(ScopeOwner::LambdaParam(lam), |s| {
-                                s.scoped(ScopeOwner::Local(b), |inner_s| {
-                                    inner_s.ret_ty_in_block(b, &mut ty_list);
-                                });
-                            });
-                            self.cur_lambda = prev_lambda;
-                            if ty_list.len() == 0 { ty_list.push(self.alloc.ty.alloc(Ty::void())); }
-                            let ret_ty = self.get_upper_ty(ty_list.as_slice(), e.loc);
+                            if ret_list.len() == 0 { ret_list.push(self.alloc.ty.alloc(Ty::void())); }
+                            let ret_ty = self.get_upper_ty(ret_list.as_slice(), e.loc);
                             let ret_param_ty = std::iter::once(*ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
                             let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
                             lam.ret_param_ty.set(Some(ret_param_ty));
                         }
- 
-                        let prev_lambda = self.cur_lambda;
-                        self.cur_lambda = Some(lam);
-                        self.scoped(ScopeOwner::LambdaParam(lam), |s| {
-                            s.block(&b);
-                        });
-                        self.cur_lambda = prev_lambda;
+
                         Ty::mk_lambda(lam)
                     },
                 }
@@ -290,6 +284,7 @@ impl<'a> TypePass<'a> {
             StringLit(_) | ReadLine(_) => Ty::string(),
             NullLit(_) => Ty::null(),
             Call(c) => {
+                println!("call Call, loc = {:?}", e.loc);
                 self.call(c, e.loc)
             },
             Unary(u) => {
@@ -407,7 +402,7 @@ impl<'a> TypePass<'a> {
                     if let Some(sym) = c.lookup(v.name) {
                         match sym {
                             Symbol::Var(var) => {
-                                v.var.set(Some(var));
+                                v.var.set(VarSelContent::Var(var));
                                 // only allow self & descendents to access field
                                 if !self.cur_class.unwrap().extends(c) {
                                     self.issue(
@@ -422,6 +417,7 @@ impl<'a> TypePass<'a> {
                             },
                             Symbol::Func(f) => {
                                 //TODO? Fundef should be added to VarSel???
+                                v.var.set(VarSelContent::Func(f));
                                 if self.cur_func.unwrap().static_ && !f.static_ {
                                     let cur_func_name = self.cur_func.unwrap().name;
                                     self.issue(loc, RefInStatic { field: f.name, func: cur_func_name })
@@ -459,6 +455,7 @@ impl<'a> TypePass<'a> {
                     if let Some(sym) = c.lookup(v.name) {
                         match sym {
                             Symbol::Func(f) => {
+                                v.var.set(VarSelContent::Func(f));
                                 if !f.static_ {
                                     self.issue(loc, BadFieldAccess { name: f.name, owner})
                                 }
@@ -506,7 +503,7 @@ impl<'a> TypePass<'a> {
             {
                 match sym {
                     Symbol::Var(var) => {
-                        v.var.set(Some(var));
+                        v.var.set(VarSelContent::Var(var));
                         if var.owner.get().unwrap().is_class() {
                             let cur = self.cur_func.unwrap();
                             if cur.static_ {
@@ -524,6 +521,7 @@ impl<'a> TypePass<'a> {
                     Symbol::Class(c) if self.cur_used => Ty::mk_class(c),
                     
                     Symbol::Func(f) => {
+                        v.var.set(VarSelContent::Func(f));
                         let cur = self.cur_func.unwrap();
                         if cur.static_ && !f.static_ {
                             self.issue(loc, RefInStatic { field: f.name, func: cur.name})
@@ -546,117 +544,85 @@ impl<'a> TypePass<'a> {
         } else {
             unimplemented!()
         };
-        let owner = if let Some(owner) = &v.owner {
-            self.cur_used = true;
-            let owner = self.expr(owner);
-            self.cur_used = false;
-            if owner == Ty::error() {
-                return Ty::error();
-            }
-            if v.name == LENGTH && owner.is_arr() {
-                if !c.arg.is_empty() {
-                    self.issue(loc, LengthWithArgument(c.arg.len() as u32))
+        match &v.owner {
+            Some(owner) => {
+                self.cur_used = true;
+                let owner = self.expr(owner);
+                self.cur_used = false;
+
+                if owner == Ty::error() {
+                    return Ty::error();
                 }
-                return Ty::int();
-            }
-            owner
-        } else {
-            Ty::mk_obj(self.cur_class.unwrap())
-        };
-        match owner {
-            Ty {
-                arr: 0,
-                kind: TyKind::Object(Ref(cl)),
-            }
-            | Ty {
-                arr: 0,
-                kind: TyKind::Class(Ref(cl)),
-            } => {
-                if let Some(sym) = cl.lookup(v.name) {
+                if v.name == LENGTH && owner.is_arr() {
+                    if !c.arg.is_empty() {
+                        self.issue(loc, LengthWithArgument(c.arg.len() as u32))
+                    }
+                    return Ty::int();
+                }
+    
+                match owner {
+                    Ty { arr: 0, kind: TyKind::Object(Ref(cl))} | Ty { arr: 0, kind: TyKind::Class(Ref(cl))} => {
+                        if let Some(sym) = cl.lookup(v.name) {
+                            match sym {
+                                Symbol::Func(f) => {
+                                    c.func_ref.set(Some(f));
+                                    if owner.is_class() && !f.static_ {
+                                        //Class,not_static_method()
+                                        self.issue(c.func.loc, BadFieldAccess { name: v.name, owner})
+                                    }
+                                    if v.owner.is_none() {
+                                        let cur = self.cur_func.unwrap();
+                                        if cur.static_ && !f.static_ {
+                                            self.issue(c.func.loc, RefInStatic { field: f.name, func: cur.name })
+                                        }
+                                    }
+                                    self.check_arg_param(&c.arg, f.ret_param_ty.get().unwrap(), f.name, loc)
+                                },
+                                Symbol::Var(v) => {
+                                    //check if v is callable
+                                    let ty = self.alloc.ty.alloc(v.ty.get());
+                                    match &ty.kind {
+                                        TyKind::Func(args) => self.check_arg_param(&c.arg, args, v.name, loc),
+                                        _ => self.issue(loc, NotCallable(ty)),
+                                    }
+                                },
+                                _ => self.issue(c.func.loc, NotFunc { name: v.name, owner})
+                            }
+                        } else {
+                            self.issue(c.func.loc, NoSuchField { name: v.name, owner })
+                        }
+                    },
+                    _ => {
+                        self.issue(c.func.loc, BadFieldAccess { name: v.name, owner })
+                    },
+                }
+            },
+            None => {
+                let owner = Ty::mk_obj(self.cur_class.unwrap());
+                if let Some(sym) = self.cur_class.unwrap().lookup(v.name) {
                     match sym {
                         Symbol::Func(f) => {
                             c.func_ref.set(Some(f));
                             if owner.is_class() && !f.static_ {
-                                // Class.not_static_method()
-                                self.issue(
-                                    loc,
-                                    BadFieldAccess {
-                                        name: v.name,
-                                        owner,
-                                    },
-                                )
+                                //Class,not_static_method()
+                                self.issue(c.func.loc, BadFieldAccess { name: v.name, owner})
                             }
                             if v.owner.is_none() {
                                 let cur = self.cur_func.unwrap();
                                 if cur.static_ && !f.static_ {
-                                    self.issue(
-                                        loc,
-                                        RefInStatic {
-                                            field: f.name,
-                                            func: cur.name,
-                                        },
-                                    )
+                                    self.issue(c.func.loc, RefInStatic { field: f.name, func: cur.name })
                                 }
                             }
                             self.check_arg_param(&c.arg, f.ret_param_ty.get().unwrap(), f.name, loc)
-                        }
-                        _ => self.issue(
-                            loc,
-                            NotFunc {
-                                name: v.name,
-                                owner,
-                            },
-                        ),
+                        },
+                        _ => self.issue(c.func.loc, NotFunc { name: v.name, owner})
                     }
                 } else {
-                    self.issue(
-                        loc,
-                        NoSuchField {
-                            name: v.name,
-                            owner,
-                        },
-                    )
-                }
-            }
-            _ => {
-                self.issue(
-                    loc,
-                    BadFieldAccess {
-                        name: v.name,
-                        owner,
-                    },
-                )
-            }
-        }
-    }
-
-    fn ret_ty_in_block(&mut self, b: &'a Block<'a>, ty_list: &mut Vec<&'a Ty<'a>>) {
-        self.scoped(ScopeOwner::Local(b), |s| {
-            for st in &b.stmt {
-                s.ret_ty_in_stmt(st, ty_list);
-            }
-        });
-    }
-    fn ret_ty_in_stmt(&mut self, s: &'a Stmt<'a>, ty_list: &mut Vec<&'a Ty<'a>>) {
-        match &s.kind {
-            StmtKind::Return(r) => {
-                let actual_ret = r.as_ref().map(|e| self.expr(e)).unwrap_or(Ty::void());
-                let actual_ret = self.alloc.ty.alloc(actual_ret);
-                ty_list.push(actual_ret);
-            }
-            StmtKind::If(i) => {
-                //TODO  cond?
-                //self.get_all_return_ty(&i.cond, ty_list)
-                self.ret_ty_in_block(&i.on_true, ty_list);
-                if let Some(b_false) = &i.on_false {
-                    self.ret_ty_in_block(b_false, ty_list);
+                    self.issue(c.func.loc, UndeclaredVar(v.name))
                 }
             },
-            StmtKind::While(w) => self.ret_ty_in_block(&w.body, ty_list),
-            StmtKind::For(f) => self.ret_ty_in_block(&f.body, ty_list),
-            StmtKind::Block(b) => self.ret_ty_in_block(&b, ty_list),
-            _ => {},
-        };
+        }
+
     }
 
     fn get_upper_ty(&mut self, ty_list: &[&'a Ty<'a>], loc: common::Loc) -> &'a Ty<'a> {
@@ -667,7 +633,7 @@ impl<'a> TypePass<'a> {
                 match t.kind {
                     TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void => {
                         for other_t in ty_list {
-                            if Ref(other_t) != Ref(t) {
+                            if other_t != t {
                                 let _: u32 = self.issue(loc, IncompatibleReturnType);
                                 break;
                             }
@@ -677,7 +643,7 @@ impl<'a> TypePass<'a> {
                     },
                     _ if t.arr > 0 => {
                         for other_t in ty_list {
-                            if Ref(other_t) != Ref(t) {
+                            if other_t != t {
                                 let _: u32 = self.issue(loc, IncompatibleReturnType);
                                 *ret_ty = **t;
                                 break;
@@ -770,7 +736,7 @@ impl<'a> TypePass<'a> {
                 match t.kind {
                     TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void | _ if t.arr > 0 => {
                         for other_t in ty_list {
-                            if Ref(other_t) != Ref(t) {
+                            if other_t != t {
                                 let _: u32 = self.issue(loc, IncompatibleReturnType);
                                 *ret_ty = **t;
                                 break;
@@ -803,7 +769,7 @@ impl<'a> TypePass<'a> {
                             let mut non_check_cnt = ty_list.len() as i32;
                             loop {
                                 for checking_ty in ty_list {
-                                    if Ref(p) == Ref(checking_ty) {
+                                    if *p == **checking_ty {
                                         non_check_cnt -= 1;
                                     }
                                 }

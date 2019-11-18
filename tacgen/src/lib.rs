@@ -233,7 +233,11 @@ impl<'a> TacGen<'a> {
         match &e.kind {
             Lambda(_) => unimplemented!(),
             VarSel(v) => Reg({
-                let var = v.var.get().unwrap();
+                let var = match v.var.get() {
+                    VarSelContent::Var(v) => v,
+                    VarSelContent::Func(_) => unimplemented!(),
+                    VarSelContent::Empty => unreachable!(),
+                };
                 let off = self.var_info[&Ref(var)].off;
                 match var.owner.get().unwrap() {
                     ScopeOwner::Local(_) | ScopeOwner::Param(_) | ScopeOwner::LambdaParam(_) => {

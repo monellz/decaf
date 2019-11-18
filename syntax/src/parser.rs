@@ -512,20 +512,6 @@ impl<'p> Parser<'p> {
     fn expr_lvalue(l: Expr<'p>) -> Expr<'p> {
         l
     }
-    /*
-    #[rule(Expr -> VarSel LPar ExprListOrEmpty RPar)]
-    fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
-        mk_expr(
-            l.loc(),
-            Call {
-                func: Box::new(func),
-                arg,
-                func_ref: dft(),
-            }
-            .into(),
-        )
-    }
-    */
     #[rule(Expr -> Expr LPar ExprListOrEmpty RPar)]
     fn expr_call(func: Expr<'p>, l: Token, arg: Vec<Expr<'p>>, _r: Token) -> Expr<'p> {
         mk_expr(

@@ -52,6 +52,7 @@ pub enum ErrorKind<'a, Ty> {
     IncompatibleReturnType,
     AssignToClassMethod(&'a str),
     AssignToCapturedVariable,
+    NotCallable(&'a Ty),
 
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
@@ -145,6 +146,8 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             IncompatibleReturnType => write!(f, "incompatible return types in blocked expression"),
             AssignToClassMethod(func) => write!(f, "cannot assign value to class member method '{}'", func),
             AssignToCapturedVariable => write!(f, "cannot assign value to captured variables in lambda expression"),
+            NotCallable(ty) => write!(f, "{:?} is not a callable type", ty),
+
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),
