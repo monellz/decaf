@@ -53,6 +53,10 @@ pub enum ErrorKind<'a, Ty> {
     AssignToClassMethod(&'a str),
     AssignToCapturedVariable,
     NotCallable(&'a Ty),
+    LambdaArgcMismatch {
+        expect: u32,
+        actual: u32,
+    },
 
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
@@ -147,6 +151,7 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             AssignToClassMethod(func) => write!(f, "cannot assign value to class member method '{}'", func),
             AssignToCapturedVariable => write!(f, "cannot assign value to captured variables in lambda expression"),
             NotCallable(ty) => write!(f, "{:?} is not a callable type", ty),
+            LambdaArgcMismatch { expect, actual } => write!(f, "lambda expression expects {} argument(s) but {} given", expect, actual),
 
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
