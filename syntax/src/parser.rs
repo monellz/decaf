@@ -175,6 +175,7 @@ impl<'p> Parser<'p> {
     ) -> &'p ClassDef<'p> {
         self.alloc.class.alloc(ClassDef {
             loc: c.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             parent,
             abstract_: false,
@@ -197,6 +198,7 @@ impl<'p> Parser<'p> {
     ) -> &'p ClassDef<'p> {
         self.alloc.class.alloc(ClassDef {
             loc: c.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             parent,
             abstract_: true, 
@@ -241,6 +243,7 @@ impl<'p> Parser<'p> {
     ) -> &'p FuncDef<'p> {
         self.alloc.func.alloc(FuncDef {
             loc: name.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             ret,
             param,
@@ -266,6 +269,7 @@ impl<'p> Parser<'p> {
     ) -> &'p FuncDef<'p> {
         self.alloc.func.alloc(FuncDef {
             loc: name.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             ret,
             param,
@@ -289,6 +293,7 @@ impl<'p> Parser<'p> {
     ) -> &'p FuncDef<'p> {
         self.alloc.func.alloc(FuncDef {
             loc: name.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             ret,
             param,
@@ -306,6 +311,7 @@ impl<'p> Parser<'p> {
     fn var_def(&self, syn_ty: SynTy<'p>, name: Token) -> &'p VarDef<'p> {
         self.alloc.var.alloc(VarDef {
             loc: name.loc(),
+            finish_loc: lexer.loc(),
             name: name.str(),
             syn_ty: Some(syn_ty),
             init: None,
@@ -459,6 +465,7 @@ impl<'p> Parser<'p> {
             loc,
             (&*self.alloc.var.alloc(VarDef {
                 loc,
+                finish_loc: lexer.loc(),
                 name: name.str(),
                 syn_ty: Some(syn_ty),
                 init: Some((a.loc(), init)),
@@ -481,6 +488,7 @@ impl<'p> Parser<'p> {
             loc,
             (&*self.alloc.var.alloc(VarDef {
                 loc,
+                finish_loc: lexer.loc(),
                 name: name.str(),
                 syn_ty: None,
                 init: Some((a.loc(), init)),
@@ -562,6 +570,7 @@ impl<'p> Parser<'p> {
             f.loc(),
             LambdaDef {
                 loc: f.loc(),
+                finish_loc: lexer.loc(),
                 name: format!("lambda@{:?}", f.loc()),
                 ret_param_ty: dft(),
                 param,
@@ -583,6 +592,7 @@ impl<'p> Parser<'p> {
             f.loc(),
             LambdaDef {
                 loc: f.loc(),
+                finish_loc: lexer.loc(),
                 name: format!("lambda@{:?}", f.loc()),
                 ret_param_ty: dft(),
                 param,

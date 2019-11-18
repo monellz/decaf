@@ -121,6 +121,10 @@ impl<'a> Ty<'a> {
     }
     
     pub fn mk_lambda(f: &'a LambdaDef<'a>) -> Ty<'a> {
+        if let None = f.ret_param_ty.get() {
+            println!("{:?} name = {}", f.loc, f.name);
+            unreachable!();
+        }
         Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty for lambda")))
     }
 

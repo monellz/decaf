@@ -51,6 +51,7 @@ pub enum ErrorKind<'a, Ty> {
     NonVoidArgType,
     IncompatibleReturnType,
     AssignToClassMethod(&'a str),
+    AssignToCapturedVariable,
 
     UnclosedStr(&'a str),
     NewlineInStr(&'a str),
@@ -143,6 +144,7 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
             NonVoidArgType => write!(f, "arguments in function type must be non-void known type"),
             IncompatibleReturnType => write!(f, "incompatible return types in blocked expression"),
             AssignToClassMethod(func) => write!(f, "cannot assign value to class member method '{}'", func),
+            AssignToCapturedVariable => write!(f, "cannot assign value to captured variables in lambda expression"),
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),

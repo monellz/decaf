@@ -5,7 +5,7 @@ mod type_pass;
 use crate::{scope_stack::ScopeStack, symbol_pass::SymbolPass, type_pass::TypePass};
 use common::{ErrorKind::*, Errors, Ref};
 use std::ops::{Deref, DerefMut};
-use syntax::{ClassDef, FuncDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef};
+use syntax::{ClassDef, FuncDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef, LambdaDef};
 use typed_arena::Arena;
 
 // if you want to alloc other types, you can add them to TypeCkAlloc
@@ -22,6 +22,7 @@ pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Er
         loop_cnt: 0,
         cur_used: false,
         cur_func: None,
+        cur_lambda: None,
         cur_class: None,
         cur_var_def: None,
         alloc,
@@ -46,6 +47,7 @@ struct TypeCk<'a> {
     // Class.var (cur_used == true) => BadFieldAssess; Class (cur_used == false) => UndeclaredVar
     cur_used: bool,
     cur_func: Option<&'a FuncDef<'a>>,
+    cur_lambda: Option<&'a LambdaDef<'a>>,
     cur_class: Option<&'a ClassDef<'a>>,
     // actually only use cur_var_def's loc
     // if cur_var_def is Some, will use it's loc to search for symbol in TypePass::var_sel

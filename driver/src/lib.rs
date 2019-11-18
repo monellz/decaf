@@ -4,7 +4,7 @@ pub mod test_util;
 
 use codegen::mips_gen::FuncGen;
 use common::{Errors, IndentPrinter};
-use syntax::{parser, parser_ll, ASTAlloc, Ty};
+use syntax::{parser, ASTAlloc, Ty};
 use tac::Tac;
 use tacopt::bb::FuncBB;
 use typeck::TypeCkAlloc;
@@ -49,7 +49,8 @@ pub fn compile<'a>(
 ) -> Result<String, Errors<'a, Ty<'a>>> {
     let mut p = IndentPrinter::default();
     let pr = match cfg.parser {
-        Parser::LL => parser_ll::work(code, &alloc.ast)?,
+        //Parser::LL => parser_ll::work(code, &alloc.ast)?,
+        Parser::LL => unreachable!(),
         Parser::LR => parser::work(code, &alloc.ast)?,
     };
     if cfg.stage == Stage::Parse {

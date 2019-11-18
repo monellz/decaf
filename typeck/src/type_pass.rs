@@ -80,6 +80,7 @@ impl<'a> TypePass<'a> {
                                 }
                             },
                             Ty { arr: 0, kind: TyKind::Class(Ref(c))} => {
+                                //println!("vs.name = {} c.name = {}", vs.name, c.name);
                                 if let Some(sym) = c.lookup(vs.name) {
                                     if let Symbol::Func(f) = sym {
                                         if f.static_ {
@@ -91,14 +92,38 @@ impl<'a> TypePass<'a> {
                             _ => unreachable!(),
                         }
                     } else {
-                        if let Some(sym) = self.scopes.lookup_before(vs.name, self.cur_var_def.map(|v| v.loc).unwrap_or(a.dst.loc)) {
-                            if let Symbol::Func(f) = sym {
-                                self.issue(s.loc, AssignToClassMethod(vs.name))
+                        if let Some(sym) = self.scopes.lookup_before(vs.name, a.dst.loc) {
+                            match sym {
+                                Symbol::Func(_) => self.issue(s.loc, AssignToClassMethod(vs.name)),
+                                Symbol::Var(v) => {
+                                    if let Some(lam) = self.cur_lambda {
+                                        if let LambdaKind::Block(b) = &lam.kind {
+                                            let is_in_block = b.scope.borrow().contains_key(vs.name);
+                                            let is_in_param = lam.scope.borrow().contains_key(vs.name);
+                                            if !is_in_block && !is_in_param {
+                                                //TODO: how to simplify it??
+                                                //TODO: consider the euqality??
+                                                use ScopeOwner::*;
+                                                match v.owner.get().unwrap() {
+                                                    Local(_) | Param(_) | LambdaParam(_) | Global(_) => {
+                                                        //no-class scope
+                                                        self.issue(s.loc, AssignToCapturedVariable)
+                                                    }
+                                                    Class(_) => {}, 
+                                                };
+                                            }
+                                        }
+                                    }
+                                },
+                                _ => {},
                             }
                         } else {
-                            unreachable!("weird");
+                            //TODO????
+                            //unreachable!("weird");
                         }
                     }
+                } else {
+                    //println!("  not varsel loc = {:?}", a.dst.loc);
                 }
 
                 false
@@ -110,7 +135,6 @@ impl<'a> TypePass<'a> {
                         Some(_) => {
                             let (l, r) = (v.ty.get(), self.expr(e));
                             if !r.assignable_to(l) {
-                                println!("{:?}, {:?}", r, l);
                                 self.issue(*loc, IncompatibleBinary { l, op: "=", r })
                             }
                         },
@@ -162,7 +186,12 @@ impl<'a> TypePass<'a> {
                 false
             }),
             StmtKind::Return(r) => {
-                let expect = self.cur_func.unwrap().ret_ty();
+                let expect = if let Some(lam) = self.cur_lambda {
+                    lam.ret_ty()
+                } else {
+                    self.cur_func.unwrap().ret_ty()
+                };
+                //println!("loc = {:?}, self.cur_func.name = {} cur_lambda = {}", s.loc, self.cur_func.unwrap().name, self.cur_lambda.unwrap().name);
                 let actual = r.as_ref().map(|e| self.expr(e)).unwrap_or(Ty::void());
                 if !actual.assignable_to(expect) {
                     self.issue(s.loc, ReturnMismatch { actual, expect })
@@ -214,18 +243,45 @@ impl<'a> TypePass<'a> {
             Lambda(lam) => {
                 match &lam.kind {
                     LambdaKind::Expr(e) => {
-                        //TODO?
-                        let ret_ty = self.scoped(ScopeOwner::LambdaParam(lam), |s| {
-                            s.expr(e)
-                        });
                         if let None = lam.ret_param_ty.get() {
+                            self.cur_lambda = Some(lam);
+                            let ret_ty = self.scoped(ScopeOwner::LambdaParam(lam), |s| {
+                                s.expr(e)
+                            });
+                            self.cur_lambda = None;
                             let ret_param_ty = std::iter::once(ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
                             let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
                             lam.ret_param_ty.set(Some(ret_param_ty));
                         } 
                         Ty::mk_lambda(lam)
-                    }
-                    LambdaKind::Block(_) => unimplemented!(),
+                    },
+                    LambdaKind::Block(b) => {
+                        if let None = lam.ret_param_ty.get() {
+                            let mut ty_list = Vec::new();    
+                            //println!("start to cal ret_ty loc = {:?} name = {}", e.loc, lam.name);
+                            let prev_lambda = self.cur_lambda;
+                            self.cur_lambda = Some(lam);
+                            self.scoped(ScopeOwner::LambdaParam(lam), |s| {
+                                s.scoped(ScopeOwner::Local(b), |inner_s| {
+                                    inner_s.ret_ty_in_block(b, &mut ty_list);
+                                });
+                            });
+                            self.cur_lambda = prev_lambda;
+                            if ty_list.len() == 0 { ty_list.push(self.alloc.ty.alloc(Ty::void())); }
+                            let ret_ty = self.get_upper_ty(ty_list.as_slice(), e.loc);
+                            let ret_param_ty = std::iter::once(*ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
+                            let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
+                            lam.ret_param_ty.set(Some(ret_param_ty));
+                        }
+ 
+                        let prev_lambda = self.cur_lambda;
+                        self.cur_lambda = Some(lam);
+                        self.scoped(ScopeOwner::LambdaParam(lam), |s| {
+                            s.block(&b);
+                        });
+                        self.cur_lambda = prev_lambda;
+                        Ty::mk_lambda(lam)
+                    },
                 }
                 //unimplemented!()
             },
@@ -445,7 +501,8 @@ impl<'a> TypePass<'a> {
             // if this stmt is in an VarDef, it cannot access the variable that is being declared
             if let Some(sym) = self
                 .scopes
-                .lookup_before(v.name, self.cur_var_def.map(|v| v.loc).unwrap_or(loc))
+                //.lookup_before(v.name, self.cur_var_def.map(|v| v.loc).unwrap_or(loc))
+                .lookup_before(v.name, loc)
             {
                 match sym {
                     Symbol::Var(var) => {
@@ -572,13 +629,53 @@ impl<'a> TypePass<'a> {
             }
         }
     }
+
+    fn ret_ty_in_block(&mut self, b: &'a Block<'a>, ty_list: &mut Vec<&'a Ty<'a>>) {
+        self.scoped(ScopeOwner::Local(b), |s| {
+            for st in &b.stmt {
+                s.ret_ty_in_stmt(st, ty_list);
+            }
+        });
+    }
+    fn ret_ty_in_stmt(&mut self, s: &'a Stmt<'a>, ty_list: &mut Vec<&'a Ty<'a>>) {
+        match &s.kind {
+            StmtKind::Return(r) => {
+                let actual_ret = r.as_ref().map(|e| self.expr(e)).unwrap_or(Ty::void());
+                let actual_ret = self.alloc.ty.alloc(actual_ret);
+                ty_list.push(actual_ret);
+            }
+            StmtKind::If(i) => {
+                //TODO  cond?
+                //self.get_all_return_ty(&i.cond, ty_list)
+                self.ret_ty_in_block(&i.on_true, ty_list);
+                if let Some(b_false) = &i.on_false {
+                    self.ret_ty_in_block(b_false, ty_list);
+                }
+            },
+            StmtKind::While(w) => self.ret_ty_in_block(&w.body, ty_list),
+            StmtKind::For(f) => self.ret_ty_in_block(&f.body, ty_list),
+            StmtKind::Block(b) => self.ret_ty_in_block(&b, ty_list),
+            _ => {},
+        };
+    }
+
     fn get_upper_ty(&mut self, ty_list: &[&'a Ty<'a>], loc: common::Loc) -> &'a Ty<'a> {
         let ret_ty = self.alloc.ty.alloc(Ty::null());
         for (idx, t) in ty_list.iter().enumerate() {
             if let TyKind::Null = t.kind { continue; }
             else {
                 match t.kind {
-                    TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void | _ if t.arr > 0 => {
+                    TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void => {
+                        for other_t in ty_list {
+                            if Ref(other_t) != Ref(t) {
+                                let _: u32 = self.issue(loc, IncompatibleReturnType);
+                                break;
+                            }
+                        }
+                        *ret_ty = **t;
+                        return ret_ty;
+                    },
+                    _ if t.arr > 0 => {
                         for other_t in ty_list {
                             if Ref(other_t) != Ref(t) {
                                 let _: u32 = self.issue(loc, IncompatibleReturnType);
@@ -654,11 +751,14 @@ impl<'a> TypePass<'a> {
                         *ret_ty = Ty { arr: t.arr, kind: TyKind::Func(self.alloc.ty.alloc_extend(finnal_ty)) };
                         return ret_ty;
                     },
-                    _ => unreachable!(),
+                    e => {
+                        println!("{:?}", t);
+                        unreachable!();
+                    }
                 };
             }
         }
-        assert!(*ret_ty != Ty::null(), "default ret_ty must be modified");
+        //assert!(*ret_ty != Ty::null(), "default ret_ty must be modified");
         ret_ty
     }
 

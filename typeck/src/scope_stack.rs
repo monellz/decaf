@@ -26,7 +26,8 @@ impl<'a> ScopeStack<'a> {
     }
 
     // do lookup, but will ignore those local symbols whose loc >= the given loc
-    pub fn lookup_before(&self, name: &'a str, loc: Loc) -> Option<Symbol<'a>> {
+    //pub fn lookup_before(&self, name: &'a str, loc: Loc) -> Option<Symbol<'a>> {
+    pub fn lookup_before(&self, name: &'a str, finish_loc: Loc) -> Option<Symbol<'a>> {
         self.stack
             .iter()
             .rev()
@@ -36,7 +37,8 @@ impl<'a> ScopeStack<'a> {
                     .scope()
                     .get(name)
                     .cloned()
-                    .filter(|sym| !(owner.is_local() && sym.loc() >= loc))
+                    //.filter(|sym| !(owner.is_local() && sym.loc() >= loc))
+                    .filter(|sym| !(owner.is_local() && sym.finish_loc() >= finish_loc))
             })
             .next()
     }

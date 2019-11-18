@@ -22,6 +22,7 @@ pub struct Program<'a> {
 
 pub struct ClassDef<'a> {
     pub loc: Loc,
+    pub finish_loc: Loc,
     pub name: &'a str,
     pub parent: Option<&'a str>,
     pub abstract_: bool, 
@@ -77,6 +78,7 @@ impl FieldDef<'_> {
 
 pub struct FuncDef<'a> {
     pub loc: Loc,
+    pub finish_loc: Loc,
     pub name: &'a str,
     pub ret: SynTy<'a>,
     pub param: Vec<&'a VarDef<'a>>,
@@ -99,6 +101,7 @@ impl<'a> FuncDef<'a> {
 
 pub struct VarDef<'a> {
     pub loc: Loc,
+    pub finish_loc: Loc,
     pub name: &'a str,
     pub syn_ty: Option<SynTy<'a>>,
     // if this is in an ClassDef, `init` must be None
@@ -213,11 +216,18 @@ pub struct Call<'a> {
  
 pub struct LambdaDef<'a> {
     pub loc: Loc,
+    pub finish_loc: Loc,
     pub name: String,
     pub param: Vec<&'a VarDef<'a>>,
     pub ret_param_ty: Cell<Option<&'a [Ty<'a>]>>,
     pub kind: LambdaKind<'a>,
     pub scope: RefCell<Scope<'a>>,
+}
+
+impl<'a> LambdaDef<'a> {
+    pub fn ret_ty(&self) -> Ty<'a> {
+        self.ret_param_ty.get().unwrap()[0]
+    }
 }
 
 pub enum LambdaKind<'a> {

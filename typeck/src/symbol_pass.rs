@@ -256,7 +256,12 @@ impl<'a> SymbolPass<'a> {
 
     fn stmt(&mut self, s: &'a Stmt<'a>) {
         match &s.kind {
-            StmtKind::LocalVarDef(v) => self.var_def(v),
+            StmtKind::LocalVarDef(v) => {
+                self.var_def(v);
+                if let Some((_, e)) = &v.init {
+                    self.expr(e);
+                }
+            },
             StmtKind::If(i) => {
                 self.block(&i.on_true);
                 if let Some(of) = &i.on_false {
@@ -302,7 +307,21 @@ impl<'a> SymbolPass<'a> {
                     }
                     //TODO! not set the ret_ty
                     match &lam.kind {
-                        LambdaKind::Expr(_) => {},
+                        LambdaKind::Expr(e) => {
+                            /*
+                            if let None = lam.ret_param_ty.get() {
+                                let prev_lambda = self.cur_lambda;
+                                self.cur_lambda = Some(lam);
+                                let ret_ty = self.scoped(ScopeOwner::LambdaParam(lam), |s| {
+                                    s.expr(e)
+                                });
+                                self.cur_lambda = prev_lambda;
+                                let ret_param_ty = std::iter::once(ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
+                                let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
+                                lam.ret_param_ty.set(Some(ret_param_ty));
+                            } 
+                            */
+                        },
                         LambdaKind::Block(block) => s.block(&block),
                     };
                 });               
@@ -315,210 +334,5 @@ impl<'a> SymbolPass<'a> {
     fn get_lambda_ret_ty(e: &'a LambdaDef) -> &'a Ty<'a> {
 
         unimplemented!()
-    }
-
-    fn get_upper_ty(&mut self, ty_list: &[&'a Ty<'a>], loc: common::Loc) -> &'a Ty<'a> {
-        let ret_ty = self.alloc.ty.alloc(Ty::null());
-        for (idx, t) in ty_list.iter().enumerate() {
-            if let TyKind::Null = t.kind { continue; }
-            else {
-                match t.kind {
-                    TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void | _ if t.arr > 0 => {
-                        for other_t in ty_list {
-                            if Ref(other_t) != Ref(t) {
-                                let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                *ret_ty = **t;
-                                break;
-                            }
-                        }
-                        return ret_ty;
-                    },
-                    TyKind::Class(c) => {
-                        let p = self.alloc.ty.alloc(**t);
-                        let mut p_c = &*c;
-                        let mut all_assignable = true;
-                        loop {
-                            for other_t in ty_list {
-                                if !other_t.assignable_to(*p) {
-                                    //set p to p's parent and reloop
-                                    all_assignable = false;
-                                    if let Some(p_f_c) = p_c.parent_ref.get() {
-                                        p_c = p_f_c;
-                                        *p = Ty::mk_class(&p_f_c);
-                                        break;
-                                    } else {
-                                        let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                        return p;
-                                    }
-                                }
-                            }
-                            if all_assignable {
-                                return p;
-                            }
-                        }
-                    },
-                    TyKind::Func(args) => {
-                        for (other_idx, other_t) in ty_list.iter().enumerate() {
-                            if idx == other_idx { continue; }
-                            else {
-                                //check`
-                                match other_t.kind {
-                                    TyKind::Func(other_args) if other_args.len() == args.len() => {
-                                        //check pass
-                                    },
-                                    _ => {
-                                        let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                        return ret_ty;
-                                    }
-                                };
-                            }
-                        }
-
-                        let mut finnal_ty = Vec::new();
-                        let mut ret_args = Vec::new();
-                        for cur_ty in ty_list {
-                            ret_args.push(match &cur_ty.kind {
-                                TyKind::Func(cur_ty_args) => &cur_ty_args[0],
-                                _ => unreachable!(),
-                            });
-                        }
-                        finnal_ty.push(*self.get_upper_ty(ret_args.as_slice(), loc));
-
-
-                        for args_idx in 1..args.len() {
-                            let mut cur_args = Vec::with_capacity(ty_list.len() - 1);
-                            for cur_ty in ty_list {
-                                cur_args.push(match &cur_ty.kind {
-                                    TyKind::Func(cur_ty_args) => &cur_ty_args[args_idx],
-                                    _ => unreachable!(),
-                                });
-                            }
-                            finnal_ty.push(*self.get_lower_ty(cur_args.as_slice(), loc));
-                        }
-
-                        *ret_ty = Ty { arr: t.arr, kind: TyKind::Func(self.alloc.ty.alloc_extend(finnal_ty)) };
-                        return ret_ty;
-                    },
-                    _ => unreachable!(),
-                };
-            }
-        }
-        assert!(*ret_ty != Ty::null(), "default ret_ty must be modified");
-        ret_ty
-    }
-
-    fn get_lower_ty(&mut self, ty_list: &[&'a Ty<'a>], loc: common::Loc) -> &'a Ty<'a> {
-        let ret_ty = self.alloc.ty.alloc(Ty::null());
-        for (idx, t) in ty_list.iter().enumerate() {
-            if let TyKind::Null = t.kind { continue; }
-            else {
-                match t.kind {
-                    TyKind::Int | TyKind::Bool | TyKind::String | TyKind::Void | _ if t.arr > 0 => {
-                        for other_t in ty_list {
-                            if Ref(other_t) != Ref(t) {
-                                let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                *ret_ty = **t;
-                                break;
-                            }
-                        }
-                        return ret_ty;
-                    },
-                    TyKind::Class(c) => {
-                        //check that all the ty is class
-                        for cur_ty in ty_list {
-                            match cur_ty.kind {
-                                TyKind::Class(_) => continue,
-                                _ => {
-                                    let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                    return ret_ty;
-                                },
-                            };
-                        }
-
-                        let p = self.alloc.ty.alloc(**t);
-                        let mut p_c = &*c;
-                        let mut all_assignable = true;
-                        for cur_ty in ty_list {
-                            //check whether cur_ty is the lower bound
-                            let p = self.alloc.ty.alloc(**cur_ty);
-                            let mut p_c = match &cur_ty.kind {
-                                TyKind::Class(p_c) => &**p_c,
-                                _ => unreachable!(),
-                            };
-                            let mut non_check_cnt = ty_list.len() as i32;
-                            loop {
-                                for checking_ty in ty_list {
-                                    if Ref(p) == Ref(checking_ty) {
-                                        non_check_cnt -= 1;
-                                    }
-                                }
-                                if non_check_cnt > 0 {
-                                    //back to parent
-                                    if let Some(p_f_c) = p_c.parent_ref.get() {
-                                        p_c = p_f_c;
-                                        *p = Ty::mk_class(&p_f_c);
-                                    } else {
-                                        //no parent
-                                        break;
-                                    }
-                                } else {
-                                    //checked
-                                    *ret_ty = **cur_ty;
-                                    return ret_ty;
-                                }
-                            }
-                        }
-
-                        let _:u32 = self.issue(loc, IncompatibleReturnType);
-                        return ret_ty;
-                    },
-                    TyKind::Func(args) => {
-                        for (other_idx, other_t) in ty_list.iter().enumerate() {
-                            if idx == other_idx { continue; }
-                            else {
-                                //check`
-                                match other_t.kind {
-                                    TyKind::Func(other_args) if other_args.len() == args.len() => {
-                                        //check pass
-                                    },
-                                    _ => {
-                                        let _: u32 = self.issue(loc, IncompatibleReturnType);
-                                        return ret_ty;
-                                    }
-                                };
-                            }
-                        }
-
-                        let mut finnal_ty = Vec::new();
-                        let mut ret_args = Vec::new();
-                        for cur_ty in ty_list {
-                            ret_args.push(match &cur_ty.kind {
-                                TyKind::Func(cur_ty_args) => &cur_ty_args[0],
-                                _ => unreachable!(),
-                            });
-                        }
-                        finnal_ty.push(*self.get_lower_ty(ret_args.as_slice(), loc));
-
-
-                        for args_idx in 1..args.len() {
-                            let mut cur_args = Vec::with_capacity(ty_list.len() - 1);
-                            for cur_ty in ty_list {
-                                cur_args.push(match &cur_ty.kind {
-                                    TyKind::Func(cur_ty_args) => &cur_ty_args[args_idx],
-                                    _ => unreachable!(),
-                                });
-                            }
-                            finnal_ty.push(*self.get_upper_ty(cur_args.as_slice(), loc));
-                        }
-
-                        *ret_ty = Ty { arr: t.arr, kind: TyKind::Func(self.alloc.ty.alloc_extend(finnal_ty)) };
-                        return ret_ty;
-                    },
-                    _ => unreachable!(),
-                };
-            }
-        }
-        assert!(*ret_ty != Ty::null(), "default ret_ty must be modified");
-        ret_ty
     }
 }

@@ -36,6 +36,17 @@ impl<'a> Symbol<'a> {
         }
     }
 
+    pub fn finish_loc(&self) -> Loc {
+        match self {
+            Symbol::Var(v) => v.finish_loc,
+            Symbol::Func(f) | Symbol::This(f) => f.finish_loc,
+            Symbol::Lambda(lam) => lam.finish_loc,
+            Symbol::Class(c) => c.finish_loc,
+        }
+    }
+
+
+
     // for symbol This & Class, will return the type of their class object
     pub fn ty(&self) -> Ty<'a> {
         match self {
