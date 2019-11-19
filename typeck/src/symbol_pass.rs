@@ -228,7 +228,8 @@ impl<'a> SymbolPass<'a> {
                 }
                 (ScopeOwner::Class(_), ScopeOwner::Class(_))
                 | (_, ScopeOwner::Param(_))
-                | (_, ScopeOwner::Local(_)) => self.issue(
+                | (_, ScopeOwner::Local(_))
+                | (_, ScopeOwner::LambdaParam(_)) => self.issue(
                     v.loc,
                     ConflictDeclaration {
                         prev: sym.loc(),
