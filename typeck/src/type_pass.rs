@@ -509,7 +509,6 @@ impl<'a> TypePass<'a> {
                 }
             }
             */
-            let owner = Ty::mk_obj(self.cur_class.unwrap());
             if let Some(sym) = self.scopes.lookup_before(v.name, loc).0 {
                 match sym {
                     Symbol::Var(var) => {
@@ -536,6 +535,7 @@ impl<'a> TypePass<'a> {
                     }
                 }
             } else {
+                let owner = Ty::mk_obj(self.cur_class.unwrap());
                 //check for class
                 if let Some(sym) = self.cur_class.unwrap().lookup(v.name) {
                     match sym {
@@ -549,6 +549,7 @@ impl<'a> TypePass<'a> {
                         _ => self.issue(loc, NotFunc { name: v.name, owner: owner })
                     }
                 } else {
+                    println!("????? name = {}, loc = {:?}", v.name, loc);
                     self.issue(loc, UndeclaredVar(v.name))
                 }
             }

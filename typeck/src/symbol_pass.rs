@@ -280,7 +280,10 @@ impl<'a> SymbolPass<'a> {
             StmtKind::Block(b) => self.block(b),
 
             //add support for lambda symbol
-            StmtKind::Assign(a) => self.expr(&a.src),
+            StmtKind::Assign(a) => {
+                self.expr(&a.dst);
+                self.expr(&a.src);
+            },
             StmtKind::ExprEval(e) => self.expr(e),
             StmtKind::Return(r) => {
                 if let Some(e) = r {
@@ -304,6 +307,7 @@ impl<'a> SymbolPass<'a> {
                 //add lambda to the symbol table
                 self.scoped(ScopeOwner::LambdaParam(lam), |s| {
                     for v in &lam.param {
+                        println!("   def v = {}, at {:?} and lam = {:?}", v.name, e.loc, lam.name);
                         s.var_def(v);
                     }
                     match &lam.kind {
@@ -315,13 +319,27 @@ impl<'a> SymbolPass<'a> {
                         LambdaKind::Block(block) => s.block(block),
                     };
                 });               
+                println!("declar lam = {:?}", lam.name);
+                match self.scopes.cur_owner() {
+                    ScopeOwner::Local(_) => println!("  in local"),
+                    ScopeOwner::Param(_) => println!("  in param"),
+                    ScopeOwner::LambdaParam(_) => println!("  in lambda param"),
+                    ScopeOwner::LambdaExprLocal(_) => println!(" in lambda expr local"),
+                    _ => println!("???"),
+                };
                 self.scopes.declare(Symbol::Lambda(lam));
             },
             IndexSel(i) => {
+                println!("into index sel at {:?}", e.loc);
                 self.expr(&i.arr);
                 self.expr(&i.idx);
             },
-            Call(c) => self.expr(&c.func),
+            Call(c) => {
+                self.expr(&c.func);
+                for e in &c.arg {
+                    self.expr(e);
+                }
+            },
             Unary(u) => self.expr(&u.r),
             Binary(b) => {
                 self.expr(&b.l);

@@ -47,7 +47,9 @@ impl<'a> ScopeStack<'a> {
     pub fn lookup_before(&self, name: &'a str, finish_loc: Loc) -> (Option<Symbol<'a>>, bool) {
         let mut out_of_lambda = false;
         for &owner in self.stack.iter().rev().chain(iter::once(&self.global)) {
+            println!("lookup for {}, before {:?}", name, finish_loc);
             if let Some(sym) = owner.scope().get(name).cloned() {
+                println!("    !! find it");
                 if !(owner.is_local() && sym.finish_loc() >= finish_loc) {
                     return (Some(sym), out_of_lambda);
                 }

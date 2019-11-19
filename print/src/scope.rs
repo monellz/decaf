@@ -86,7 +86,12 @@ pub fn expr(e: &Expr, p: &mut IndentPrinter) {
             expr(&i.arr, p);
             expr(&i.idx, p);
         },
-        Call(c) => expr(&c.func, p),
+        Call(c) => {
+            expr(&c.func, p);
+            for e in &c.arg {
+                expr(e, p);
+            }
+        },
         Unary(u) => expr(&u.r, p),
         Binary(b) => {
             expr(&b.l, p);
