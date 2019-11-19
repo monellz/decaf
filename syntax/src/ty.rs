@@ -73,6 +73,9 @@ impl<'a> Ty<'a> {
                     && match (self.kind, rhs.kind) {
                         (Int, Int) | (Bool, Bool) | (String, String) | (Void, Void) => true,
                         (Object(c1), Object(Ref(c2))) => c1.extends(c2),
+                        (Object(c1), Class(Ref(c2))) => c1.extends(c2),
+                        (Class(c1), Object(Ref(c2))) => c1.extends(c2),
+                        (Class(c1), Class(Ref(c2))) => c1.extends(c2),
                         (Null, Object(_)) => true,
                         (Func(rp1), Func(rp2)) => {
                             let (r1, p1, r2, p2) = (&rp1[0], &rp1[1..], &rp2[0], &rp2[1..]);
