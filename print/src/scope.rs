@@ -61,23 +61,6 @@ pub fn lambda_def(lam: &LambdaDef, p: &mut IndentPrinter) {
     });
 }
 
-/*
-pub fn expr(e: &Expr, p: &mut IndentPrinter) {
-    if let ExprKind::Lambda(lam) = &e.kind {
-        write!(p, "FORMAL SCOPE OF '{}':", lam.name).ignore();
-        p.indent(|p| {
-            show_scope(&lam.scope.borrow(), p);
-            match &lam.kind {
-                LambdaKind::Expr(_) => {
-                    write!(p, "LOCAL SCOPE:").ignore();
-                    p.indent(|p| write!(p, "<empty>").ignore());
-                },
-                LambdaKind::Block(b) => block(b, p),
-            };
-        });
-    }
-}
-*/
 pub fn expr(e: &Expr, p: &mut IndentPrinter) {
     use ExprKind::*;
     match &e.kind {

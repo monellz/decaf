@@ -5,7 +5,7 @@ use std::{
     iter,
     ops::{Deref, DerefMut},
 };
-use syntax::{ast::*, ScopeOwner, Symbol, Ty, TyKind};
+use syntax::{ast::*, ScopeOwner, Symbol, Ty};
 
 pub(crate) struct SymbolPass<'a>(pub TypeCk<'a>);
 
@@ -213,12 +213,7 @@ impl<'a> SymbolPass<'a> {
                 self.issue(v.loc, VoidVar(v.name))
             }
         }
-        /*
-        v.ty.set(self.ty(&v.syn_ty.as_ref().expect("unwrap a non syn_ty"), false));
-        if v.ty.get() == Ty::void() {
-            self.issue(v.loc, VoidVar(v.name))
-        }
-        */
+
         let ok = if let Some((sym, owner)) = self.scopes.lookup(v.name) {
             match (self.scopes.cur_owner(), owner) {
                 (ScopeOwner::Class(c1), ScopeOwner::Class(c2))
@@ -307,7 +302,6 @@ impl<'a> SymbolPass<'a> {
                 //add lambda to the symbol table
                 self.scoped(ScopeOwner::LambdaParam(lam), |s| {
                     for v in &lam.param {
-                        println!("   def v = {}, at {:?} and lam = {:?}", v.name, e.loc, lam.name);
                         s.var_def(v);
                     }
                     match &lam.kind {
@@ -319,18 +313,9 @@ impl<'a> SymbolPass<'a> {
                         LambdaKind::Block(block) => s.block(block),
                     };
                 });               
-                println!("declar lam = {:?}", lam.name);
-                match self.scopes.cur_owner() {
-                    ScopeOwner::Local(_) => println!("  in local"),
-                    ScopeOwner::Param(_) => println!("  in param"),
-                    ScopeOwner::LambdaParam(_) => println!("  in lambda param"),
-                    ScopeOwner::LambdaExprLocal(_) => println!(" in lambda expr local"),
-                    _ => println!("???"),
-                };
                 self.scopes.declare(Symbol::Lambda(lam));
             },
             IndexSel(i) => {
-                println!("into index sel at {:?}", e.loc);
                 self.expr(&i.arr);
                 self.expr(&i.idx);
             },

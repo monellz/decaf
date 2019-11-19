@@ -198,7 +198,6 @@ pub enum ExprKind<'a> {
 pub struct VarSel<'a> {
     pub owner: Option<Box<Expr<'a>>>,
     pub name: &'a str,
-    //pub var: Cell<Option<&'a VarDef<'a>>>,
     pub var: Cell<VarSelContent<'a>>,
 }
 
@@ -207,7 +206,6 @@ pub enum VarSelContent<'a> {
     Var(&'a VarDef<'a>),
     Func(&'a FuncDef<'a>),
     Empty,
-    //Lambda(&'a LambdaDef<'a>),
 }
 impl<'a> std::default::Default for VarSelContent<'a> {
     fn default() -> Self { VarSelContent::Empty }
