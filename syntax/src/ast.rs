@@ -234,6 +234,9 @@ pub struct LambdaDef<'a> {
     pub ret_param_ty: Cell<Option<&'a [Ty<'a>]>>,
     pub kind: LambdaKind<'a>,
     pub scope: RefCell<Scope<'a>>,
+
+    //if kind is block, then use scope of block instead of this
+    pub local_scope: RefCell<Scope<'a>>,
 }
 
 impl<'a> LambdaDef<'a> {

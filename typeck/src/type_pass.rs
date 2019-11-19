@@ -106,7 +106,7 @@ impl<'a> TypePass<'a> {
                                                 //TODO: consider the euqality??
                                                 use ScopeOwner::*;
                                                 match v.owner.get().unwrap() {
-                                                    Local(_) | Param(_) | LambdaParam(_) | Global(_) => {
+                                                    Local(_) | Param(_) | LambdaParam(_) | Global(_) | LambdaExprLocal(_) => {
                                                         //no-class scope
                                                         self.issue(s.loc, AssignToCapturedVariable)
                                                     }
@@ -466,6 +466,21 @@ impl<'a> TypePass<'a> {
             }
         } else {
             //v owner is none
+            /*
+            println!("looking for {} at {:?}", v.name, loc);
+            if let Some(lam) = self.cur_lambda {
+                println!(" in lam {}", lam.name);
+                if let Some((sym, own)) = self.scopes.lookup(v.name) {
+                    println!(" find v at sym");
+                    if let ScopeOwner::LambdaParam(p) = own {
+                        println!(" v is in lambdaparam lam.name = {}", p.name);
+                    }
+                    if let ScopeOwner::Local(b) = own {
+                        println!(" v is in block b.loc = {:?}", b.loc);
+                    }
+                }
+            }
+            */
             let owner = Ty::mk_obj(self.cur_class.unwrap());
             if let Some(sym) = self.scopes.lookup_before(v.name, loc) {
                 match sym {
@@ -515,12 +530,15 @@ impl<'a> TypePass<'a> {
     fn call(&mut self, c: &'a Call<'a>, loc: Loc) -> Ty<'a> {
         //if caller_name is none => lambda
         let caller_name = match &c.func.kind {
-            ExprKind::Lambda(_) | ExprKind::Call(_) => None,
             ExprKind::VarSel(v) => Some(v.name),
+            _ => None,
+            /*
+            ExprKind::Lambda(_) | ExprKind::Call(_) => None,
             _ => {
                 println!("??? loc = {:?}", loc);
                 unimplemented!()
             }
+            */
         };
 
         let func_ty = self.alloc.ty.alloc(self.expr(&c.func));
@@ -539,11 +557,10 @@ impl<'a> TypePass<'a> {
                 Some(name) => self.issue(loc, ArgcMismatch { name, expect: (func_ty.len() - 1) as u32, actual: c.arg.len() as u32 }),
                 None => self.issue(loc, LambdaArgcMismatch { expect: (func_ty.len() - 1) as u32, actual: c.arg.len() as u32 }),
             }
-        } else {
-            //check for arg
-            //TODO: set func_ref for Call
-            self.check_arg_param_ty(&c.arg, func_ty, loc)
-        }
+        } 
+        //check for arg
+        //TODO: set func_ref for Call
+        self.check_arg_param_ty(&c.arg, func_ty, loc)
 
         /*
         if v.name == LENGTH {

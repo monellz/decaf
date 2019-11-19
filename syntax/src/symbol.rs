@@ -102,6 +102,7 @@ pub enum ScopeOwner<'a> {
     Local(&'a Block<'a>),
     Param(&'a FuncDef<'a>),
     LambdaParam(&'a LambdaDef<'a>),
+    LambdaExprLocal(&'a LambdaDef<'a>),
     Class(&'a ClassDef<'a>),
     Global(&'a Program<'a>),
 }
@@ -114,6 +115,7 @@ impl<'a> ScopeOwner<'a> {
             Local(x) => x.scope.borrow(),
             Param(x) => x.scope.borrow(),
             LambdaParam(x) => x.scope.borrow(),
+            LambdaExprLocal(x) => x.local_scope.borrow(),
             Class(x) => x.scope.borrow(),
             Global(x) => x.scope.borrow(),
         }
@@ -125,6 +127,7 @@ impl<'a> ScopeOwner<'a> {
             Local(x) => x.scope.borrow_mut(),
             Param(x) => x.scope.borrow_mut(),
             LambdaParam(x) => x.scope.borrow_mut(),
+            LambdaExprLocal(x) => x.local_scope.borrow_mut(),
             Class(x) => x.scope.borrow_mut(),
             Global(x) => x.scope.borrow_mut(),
         }
@@ -152,6 +155,13 @@ impl<'a> ScopeOwner<'a> {
         }
     }
 
+    pub fn is_lambda_expr_local(&self) -> bool {
+        if let ScopeOwner::LambdaExprLocal(_) = self {
+            true
+        } else {
+            false
+        }
+    }
 
 
     pub fn is_class(&self) -> bool {

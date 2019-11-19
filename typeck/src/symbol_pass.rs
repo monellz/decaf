@@ -305,34 +305,32 @@ impl<'a> SymbolPass<'a> {
                     for v in &lam.param {
                         s.var_def(v);
                     }
-                    //TODO! not set the ret_ty
                     match &lam.kind {
                         LambdaKind::Expr(e) => {
-                            /*
-                            if let None = lam.ret_param_ty.get() {
-                                let prev_lambda = self.cur_lambda;
-                                self.cur_lambda = Some(lam);
-                                let ret_ty = self.scoped(ScopeOwner::LambdaParam(lam), |s| {
-                                    s.expr(e)
-                                });
-                                self.cur_lambda = prev_lambda;
-                                let ret_param_ty = std::iter::once(ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
-                                let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
-                                lam.ret_param_ty.set(Some(ret_param_ty));
-                            } 
-                            */
+                            s.scoped(ScopeOwner::LambdaExprLocal(lam), |s| {
+                                s.expr(e);
+                            });
                         },
-                        LambdaKind::Block(block) => s.block(&block),
+                        LambdaKind::Block(block) => s.block(block),
                     };
                 });               
                 self.scopes.declare(Symbol::Lambda(lam));
             },
+            IndexSel(i) => {
+                self.expr(&i.arr);
+                self.expr(&i.idx);
+            },
+            Call(c) => self.expr(&c.func),
+            Unary(u) => self.expr(&u.r),
+            Binary(b) => {
+                self.expr(&b.l);
+                self.expr(&b.r);
+            },
+            NewArray(n) => self.expr(&n.len),
+            ClassTest(c) => self.expr(&c.expr),
+            ClassCast(c) => self.expr(&c.expr),
             _ => {},
         };
     }
 
-    fn get_lambda_ret_ty(e: &'a LambdaDef) -> &'a Ty<'a> {
-
-        unimplemented!()
-    }
 }

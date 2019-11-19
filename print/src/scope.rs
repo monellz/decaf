@@ -44,6 +44,24 @@ pub fn func_def(f: &FuncDef, p: &mut IndentPrinter) {
     });
 }
 
+pub fn lambda_def(lam: &LambdaDef, p: &mut IndentPrinter) {
+    write!(p, "FORMAL SCOPE OF '{}':", lam.name).ignore();
+    p.indent(|p| {
+        show_scope(&lam.scope.borrow(), p);
+        match &lam.kind {
+            LambdaKind::Expr(e) => {
+                write!(p, "LOCAL SCOPE:").ignore();
+                p.indent(|p| {
+                    show_scope(&lam.local_scope.borrow(), p);
+                    expr(e, p);
+                });
+            },
+            LambdaKind::Block(b) => block(b, p),
+        };
+    });
+}
+
+/*
 pub fn expr(e: &Expr, p: &mut IndentPrinter) {
     if let ExprKind::Lambda(lam) = &e.kind {
         write!(p, "FORMAL SCOPE OF '{}':", lam.name).ignore();
@@ -59,6 +77,28 @@ pub fn expr(e: &Expr, p: &mut IndentPrinter) {
         });
     }
 }
+*/
+pub fn expr(e: &Expr, p: &mut IndentPrinter) {
+    use ExprKind::*;
+    match &e.kind {
+        Lambda(lam) => lambda_def(lam, p),
+        IndexSel(i) => {
+            expr(&i.arr, p);
+            expr(&i.idx, p);
+        },
+        Call(c) => expr(&c.func, p),
+        Unary(u) => expr(&u.r, p),
+        Binary(b) => {
+            expr(&b.l, p);
+            expr(&b.r, p);
+        },
+        NewArray(n) => expr(&n.len, p),
+        ClassTest(c) => expr(&c.expr, p),
+        ClassCast(c) => expr(&c.expr, p),
+        _ => {},
+    };
+}
+
 
 pub fn block(b: &Block, p: &mut IndentPrinter) {
     write!(p, "LOCAL SCOPE:").ignore();
