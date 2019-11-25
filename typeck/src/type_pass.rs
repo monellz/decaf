@@ -32,7 +32,6 @@ impl<'a> TypePass<'a> {
             for f in &c.field {
                 if let FieldDef::FuncDef(f) = f {
                     s.cur_func = Some(f);
-                    //TODO: non block return false?
                     let ret = s.scoped(ScopeOwner::Param(f), |s| if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a non func body")).0 } else { Ty::void() });
                     if !f.abstract_ && ret == Ty::void() && f.ret_ty() != Ty::void() {
                         //func is not abstract & no block ret & f.ret_ty not void
@@ -114,10 +113,8 @@ impl<'a> TypePass<'a> {
                                 },
                                 _ => {},
                             }
-                        } else {
-                            //TODO????
-                            //unreachable!("weird");
                         }
+                        //for other situation, the error should have been issued
                     }
                 }
                 (Ty::void(), vec![])
@@ -223,7 +220,7 @@ impl<'a> TypePass<'a> {
     fn expr(&mut self, e: &'a Expr<'a>) -> Ty<'a> {
         use ExprKind::*;
         let ty = match &e.kind {
-            VarSel(v) => self.var_sel(v, e.loc),
+            VarSel(v) => self.var_sel(v, e.loc).0,
             IndexSel(i) => {
                 let (arr, idx) = (self.expr(&i.arr), self.expr(&i.idx));
                 if idx != Ty::int() {
@@ -385,7 +382,7 @@ impl<'a> TypePass<'a> {
         ty
     }
 
-    fn var_sel(&mut self, v: &'a VarSel<'a>, loc: Loc) -> Ty<'a> {
+    fn var_sel(&mut self, v: &'a VarSel<'a>, loc: Loc) -> (Ty<'a>, Option<&'a VarSel<'a>>) {
         // (no owner)not_found_var / ClassName(no field) / (no owner)method => UndeclaredVar
         // object.not_found_var => NoSuchField
         // (no owner)field_var && cur function is static => RefInStatic
@@ -397,11 +394,11 @@ impl<'a> TypePass<'a> {
             self.cur_used = false;
 
             if owner == Ty::error() {
-                return Ty::error();
+                return (Ty::error(), None);
             }
 
             if v.name == LENGTH && owner.is_arr() {
-                return Ty { arr: 0, kind: TyKind::Func(self.alloc.ty.alloc_extend(std::iter::once(Ty::int())))};
+                return (Ty { arr: 0, kind: TyKind::Func(self.alloc.ty.alloc_extend(std::iter::once(Ty::int())))}, Some(v));
             }
             match owner {
                 Ty { arr: 0, kind: TyKind::Object(Ref(c))} => {
@@ -419,11 +416,11 @@ impl<'a> TypePass<'a> {
                                         },
                                     )
                                 }
-                                var.ty.get()
+                                (var.ty.get(), Some(v))
                             },
                             Symbol::Func(f) => {
                                 v.var.set(VarSelContent::Func(f));
-                                Ty::mk_func(f)
+                                (Ty::mk_func(f), Some(v))
                             },
                             Symbol::Lambda(_) => {
                                 unreachable!("it seems impossible")
@@ -445,7 +442,7 @@ impl<'a> TypePass<'a> {
                                 if !f.static_ {
                                     self.issue(loc, BadFieldAccess { name: f.name, owner})
                                 }
-                                Ty::mk_func(f)
+                                (Ty::mk_func(f), Some(v))
                             },
                             Symbol::Lambda(_) => {
                                 unreachable!("a field of class is lambda? impossible");
@@ -472,16 +469,16 @@ impl<'a> TypePass<'a> {
                                 self.issue(loc, RefInStatic { field: v.name, func: cur.name })
                             }
                         }
-                        var.ty.get()
+                        (var.ty.get(), Some(v))
                     }
-                    Symbol::Class(c) if self.cur_used => Ty::mk_class(c),
+                    Symbol::Class(c) if self.cur_used => (Ty::mk_class(c), Some(v)),
                     Symbol::Func(f) => {
                         v.var.set(VarSelContent::Func(f));
                         let cur = self.cur_func.unwrap();
                         if cur.static_ && !f.static_ {
                             self.issue(loc, RefInStatic { field: f.name, func: cur.name})
                         }
-                        Ty::mk_func(f)
+                        (Ty::mk_func(f), Some(v))
                     },
                     _ => {
                         self.issue(loc, UndeclaredVar(v.name))
@@ -516,11 +513,16 @@ impl<'a> TypePass<'a> {
         };
 
         let func_ty = self.alloc.ty.alloc(self.expr(&c.func));
+        let prev_expr_func_ref = self.cur_expr_func_ref;
         let func_ty = match func_ty.kind {
             TyKind::Func(t) => t,
             TyKind::Error | TyKind::Null => return Ty::error(),
             _ => return self.issue(loc, NotCallable(func_ty)),
         };
+
+        //set func_ref for Call
+        c.func_ref.set(self.cur_expr_func_ref);
+        self.cur_expr_func_ref = prev_expr_func_ref;
 
 
         //check for arg num
@@ -531,7 +533,6 @@ impl<'a> TypePass<'a> {
             }
         } 
         //check for arg
-        //TODO: set func_ref for Call
         self.check_arg_param_ty(&c.arg, func_ty)
     }
 

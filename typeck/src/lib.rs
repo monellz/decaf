@@ -22,6 +22,7 @@ pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Er
         loop_cnt: 0,
         cur_used: false,
         cur_func: None,
+        cur_expr_func_ref: None,
         cur_lambda: None,
         cur_class: None,
         cur_var_def: None,
@@ -47,6 +48,7 @@ struct TypeCk<'a> {
     // Class.var (cur_used == true) => BadFieldAssess; Class (cur_used == false) => UndeclaredVar
     cur_used: bool,
     cur_func: Option<&'a FuncDef<'a>>,
+    cur_expr_func_ref: Option<&'a FuncDef<'a>>,
     cur_lambda: Option<&'a LambdaDef<'a>>,
     cur_class: Option<&'a ClassDef<'a>>,
     // actually only use cur_var_def's loc
