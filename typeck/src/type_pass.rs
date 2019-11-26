@@ -420,6 +420,7 @@ impl<'a> TypePass<'a> {
                             },
                             Symbol::Func(f) => {
                                 v.var.set(VarSelContent::Func(f));
+                                self.cur_expr_func_ref = Some(f);
                                 (Ty::mk_func(f), Some(v))
                             },
                             Symbol::Lambda(_) => {
@@ -442,6 +443,7 @@ impl<'a> TypePass<'a> {
                                 if !f.static_ {
                                     self.issue(loc, BadFieldAccess { name: f.name, owner})
                                 }
+                                self.cur_expr_func_ref = Some(f);
                                 (Ty::mk_func(f), Some(v))
                             },
                             Symbol::Lambda(_) => {
@@ -478,6 +480,7 @@ impl<'a> TypePass<'a> {
                         if cur.static_ && !f.static_ {
                             self.issue(loc, RefInStatic { field: f.name, func: cur.name})
                         }
+                        self.cur_expr_func_ref = Some(f);
                         (Ty::mk_func(f), Some(v))
                     },
                     _ => {
@@ -490,6 +493,7 @@ impl<'a> TypePass<'a> {
                 if let Some(sym) = self.cur_class.unwrap().lookup(v.name) {
                     match sym {
                         Symbol::Func(f) => {
+                            self.cur_expr_func_ref = Some(f);
                             if owner.is_class() && !f.static_ {
                                 self.issue(loc, BadFieldAccess { name: v.name, owner })
                             } else {
@@ -506,7 +510,6 @@ impl<'a> TypePass<'a> {
     }
 
     fn call(&mut self, c: &'a Call<'a>, loc: Loc) -> Ty<'a> {
-        //if caller_name is none => lambda
         let caller_name = match &c.func.kind {
             ExprKind::VarSel(v) => Some(v.name),
             _ => None,
@@ -521,7 +524,11 @@ impl<'a> TypePass<'a> {
         };
 
         //set func_ref for Call
-        c.func_ref.set(self.cur_expr_func_ref);
+        //TODO: are there some corner cases?
+        if let ExprKind::VarSel(_) = c.func.kind {
+            c.func_ref.set(self.cur_expr_func_ref);
+        }
+        //c.func_ref.set(self.cur_expr_func_ref);
         self.cur_expr_func_ref = prev_expr_func_ref;
 
 
