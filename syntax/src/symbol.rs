@@ -1,4 +1,4 @@
-use crate::{Block, ClassDef, FuncDef, Program, Ty, VarDef, LambdaDef};
+use crate::{Block, ClassDef, FuncDef, LambdaDef, Program, Ty, VarDef};
 use common::{HashMap, Loc};
 use std::{
     cell::{Ref, RefMut},
@@ -44,8 +44,6 @@ impl<'a> Symbol<'a> {
             Symbol::Class(c) => c.finish_loc,
         }
     }
-
-
 
     // for symbol This & Class, will return the type of their class object
     pub fn ty(&self) -> Ty<'a> {
@@ -163,7 +161,6 @@ impl<'a> ScopeOwner<'a> {
         }
     }
 
-
     pub fn is_class(&self) -> bool {
         if let ScopeOwner::Class(_) = self {
             true
@@ -187,7 +184,9 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> variable {}{} : {:?}",
                 v.loc,
-                if v.owner.get().expect("unwrap a non owner").is_param() | v.owner.get().unwrap().is_lambda_param() {
+                if v.owner.get().expect("unwrap a non owner").is_param()
+                    | v.owner.get().unwrap().is_lambda_param()
+                {
                     "@"
                 } else {
                     ""
@@ -199,7 +198,13 @@ impl fmt::Debug for Symbol<'_> {
                 f,
                 "{:?} -> {}function {} : {:?}",
                 fu.loc,
-                if fu.static_ { "STATIC " } else if fu.abstract_ { "ABSTRACT " } else { "" },
+                if fu.static_ {
+                    "STATIC "
+                } else if fu.abstract_ {
+                    "ABSTRACT "
+                } else {
+                    ""
+                },
                 fu.name,
                 Ty::mk_func(fu)
             ),
@@ -217,7 +222,13 @@ impl fmt::Debug for Symbol<'_> {
                 fu.class.get().expect("unwrap a non class").name
             ),
             Symbol::Class(c) => {
-                write!(f, "{:?} -> {}class {}", c.loc, if c.abstract_ { "ABSTRACT "} else { "" }, c.name)?;
+                write!(
+                    f,
+                    "{:?} -> {}class {}",
+                    c.loc,
+                    if c.abstract_ { "ABSTRACT " } else { "" },
+                    c.name
+                )?;
                 if let Some(p) = c.parent_ref.get() {
                     write!(f, " : {}", p.name)
                 } else {

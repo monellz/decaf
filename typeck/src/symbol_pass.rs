@@ -101,10 +101,18 @@ impl<'a> SymbolPass<'a> {
         }
     }
 
-    fn class_def(&mut self, c: &'a ClassDef<'a>, checked: &mut HashSet<Ref<'a, ClassDef<'a>>>, abs_func_map: &mut HashMap<&'a str, HashSet<&'a str>>) -> HashSet<&'a str> {
+    fn class_def(
+        &mut self,
+        c: &'a ClassDef<'a>,
+        checked: &mut HashSet<Ref<'a, ClassDef<'a>>>,
+        abs_func_map: &mut HashMap<&'a str, HashSet<&'a str>>,
+    ) -> HashSet<&'a str> {
         if !checked.insert(Ref(c)) {
             //if checked already has c, return its set
-            return abs_func_map.get(c.name).expect("cannot find hashset").clone();
+            return abs_func_map
+                .get(c.name)
+                .expect("cannot find hashset")
+                .clone();
         }
 
         let mut abs_func_set = if let Some(p) = c.parent_ref.get() {
@@ -144,9 +152,11 @@ impl<'a> SymbolPass<'a> {
                 s.var_def(v);
             }
 
-            if !f.abstract_ { s.block(&f.body.as_ref().expect("unwrap a none func body")); }
-            else { class_abs_func_set.insert(f.name); }
-
+            if !f.abstract_ {
+                s.block(&f.body.as_ref().expect("unwrap a none func body"));
+            } else {
+                class_abs_func_set.insert(f.name);
+            }
         });
         let ret_param_ty = iter::once(ret_ty).chain(f.param.iter().map(|v| v.ty.get()));
         let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
@@ -257,7 +267,7 @@ impl<'a> SymbolPass<'a> {
                 if let Some((_, e)) = &v.init {
                     self.expr(e);
                 }
-            },
+            }
             StmtKind::If(i) => {
                 self.block(&i.on_true);
                 if let Some(of) = &i.on_false {
@@ -278,22 +288,21 @@ impl<'a> SymbolPass<'a> {
             StmtKind::Assign(a) => {
                 self.expr(&a.dst);
                 self.expr(&a.src);
-            },
+            }
             StmtKind::ExprEval(e) => self.expr(e),
             StmtKind::Return(r) => {
                 if let Some(e) = r {
                     self.expr(e);
                 }
-            },
+            }
             StmtKind::Print(p) => {
                 for e in p {
                     self.expr(e);
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         };
     }
-
 
     fn expr(&mut self, e: &'a Expr<'a>) {
         use ExprKind::*;
@@ -309,32 +318,31 @@ impl<'a> SymbolPass<'a> {
                             s.scoped(ScopeOwner::LambdaExprLocal(lam), |s| {
                                 s.expr(e);
                             });
-                        },
+                        }
                         LambdaKind::Block(block) => s.block(block),
                     };
-                });               
+                });
                 self.scopes.declare(Symbol::Lambda(lam));
-            },
+            }
             IndexSel(i) => {
                 self.expr(&i.arr);
                 self.expr(&i.idx);
-            },
+            }
             Call(c) => {
                 self.expr(&c.func);
                 for e in &c.arg {
                     self.expr(e);
                 }
-            },
+            }
             Unary(u) => self.expr(&u.r),
             Binary(b) => {
                 self.expr(&b.l);
                 self.expr(&b.r);
-            },
+            }
             NewArray(n) => self.expr(&n.len),
             ClassTest(c) => self.expr(&c.expr),
             ClassCast(c) => self.expr(&c.expr),
-            _ => {},
+            _ => {}
         };
     }
-
 }

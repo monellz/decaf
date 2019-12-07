@@ -141,18 +141,32 @@ impl<Ty: fmt::Debug> fmt::Debug for ErrorKind<'_, Ty> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ErrorKind::*;
         match self {
-            NotOverrideAllAbstractFunc(name) => write!(f, "'{}' is not abstract and does not override all abstract methods", name),
-            InstantiateAbstractClass(name) => write!(f, "cannot instantiate abstract class '{}'", name),
+            NotOverrideAllAbstractFunc(name) => write!(
+                f,
+                "'{}' is not abstract and does not override all abstract methods",
+                name
+            ),
+            InstantiateAbstractClass(name) => {
+                write!(f, "cannot instantiate abstract class '{}'", name)
+            }
 
             InferVoid(name) => write!(f, "cannot declare identifier '{}' as void type", name),
 
             NonVoidArgType => write!(f, "arguments in function type must be non-void known type"),
             IncompatibleReturnType => write!(f, "incompatible return types in blocked expression"),
-            AssignToClassMethod(func) => write!(f, "cannot assign value to class member method '{}'", func),
-            AssignToCapturedVariable => write!(f, "cannot assign value to captured variables in lambda expression"),
+            AssignToClassMethod(func) => {
+                write!(f, "cannot assign value to class member method '{}'", func)
+            }
+            AssignToCapturedVariable => write!(
+                f,
+                "cannot assign value to captured variables in lambda expression"
+            ),
             NotCallable(ty) => write!(f, "{:?} is not a callable type", ty),
-            LambdaArgcMismatch { expect, actual } => write!(f, "lambda expression expects {} argument(s) but {} given", expect, actual),
-
+            LambdaArgcMismatch { expect, actual } => write!(
+                f,
+                "lambda expression expects {} argument(s) but {} given",
+                expect, actual
+            ),
 
             UnclosedStr(s) => write!(f, "unterminated string constant \"{}", s),
             NewlineInStr(s) => write!(f, "illegal newline in string constant \"{}", s),

@@ -201,7 +201,7 @@ impl<'p> Parser<'p> {
             finish_loc: lexer.loc(),
             name: name.str(),
             parent,
-            abstract_: true, 
+            abstract_: true,
             field,
             parent_ref: dft(),
             scope: dft(),
@@ -255,7 +255,7 @@ impl<'p> Parser<'p> {
             scope: dft(),
         })
     }
- 
+
     #[rule(FuncDef -> Static Type Id LPar VarDefListOrEmpty RPar Block)]
     fn func_def1(
         &self,
@@ -476,13 +476,7 @@ impl<'p> Parser<'p> {
         )
     }
     #[rule(Simple -> Var Id Assign Expr)] // type inference(must init)
-    fn simple_var_def_init(
-        &self,
-        _v: Token,
-        name: Token,
-        a: Token,
-        init: Expr<'p>,
-    ) -> Stmt<'p> {
+    fn simple_var_def_init(&self, _v: Token, name: Token, a: Token, init: Expr<'p>) -> Stmt<'p> {
         let loc = name.loc();
         mk_stmt(
             loc,
@@ -498,7 +492,7 @@ impl<'p> Parser<'p> {
                 .into(),
         )
     }
- 
+
     #[rule(Simple -> Expr)]
     fn simple_mk_expr(e: Expr<'p>) -> Stmt<'p> {
         mk_stmt(e.loc, e.into())
@@ -524,7 +518,7 @@ impl<'p> Parser<'p> {
             .into(),
         )
     }
- 
+
     #[rule(Expr -> IntLit)]
     fn expr_int(&mut self, i: Token) -> Expr<'p> {
         mk_int_lit(i.loc(), i.str(), &mut self.error)
@@ -866,5 +860,5 @@ impl<'p> Parser<'p> {
     #[rule(TypeList -> Type)]
     fn type_list0(t: SynTy<'p>) -> Vec<SynTy<'p>> {
         vec![t]
-    }    
+    }
 }

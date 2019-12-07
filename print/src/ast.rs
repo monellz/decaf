@@ -179,7 +179,7 @@ impl Printable for Expr<'_> {
         use ExprKind::*;
         print_enum!(self.kind, self.loc, p, x,
           VarSel => x.owner x.name, IndexSel => x.arr x.idx, IntLit => x, BoolLit => x, StringLit => "\"".to_owned() + x + "\"",
-          Lambda => x.param x.kind, 
+          Lambda => x.param x.kind,
           NullLit => , Call => x.func x.arg, Unary => x.op.to_word_str() x.r, Binary => x.op.to_word_str() x.l x.r,
           This => , ReadInt => , ReadLine => , NewClass => x.name, NewArray => x.elem x.len, ClassTest => x.expr x.name,
           ClassCast => x.expr x.name

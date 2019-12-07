@@ -25,7 +25,7 @@ pub struct ClassDef<'a> {
     pub finish_loc: Loc,
     pub name: &'a str,
     pub parent: Option<&'a str>,
-    pub abstract_: bool, 
+    pub abstract_: bool,
     pub field: Vec<FieldDef<'a>>,
     pub parent_ref: Cell<Option<&'a ClassDef<'a>>>,
     pub scope: RefCell<Scope<'a>>,
@@ -208,7 +208,9 @@ pub enum VarSelContent<'a> {
     Empty,
 }
 impl<'a> std::default::Default for VarSelContent<'a> {
-    fn default() -> Self { VarSelContent::Empty }
+    fn default() -> Self {
+        VarSelContent::Empty
+    }
 }
 
 pub struct IndexSel<'a> {
@@ -223,7 +225,7 @@ pub struct Call<'a> {
     pub arg: Vec<Expr<'a>>,
     pub func_ref: Cell<Option<&'a FuncDef<'a>>>,
 }
- 
+
 pub struct LambdaDef<'a> {
     pub loc: Loc,
     pub finish_loc: Loc,

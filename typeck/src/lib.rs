@@ -5,7 +5,9 @@ mod type_pass;
 use crate::{scope_stack::ScopeStack, symbol_pass::SymbolPass, type_pass::TypePass};
 use common::{ErrorKind::*, Errors, Ref};
 use std::ops::{Deref, DerefMut};
-use syntax::{ClassDef, FuncDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef, LambdaDef};
+use syntax::{
+    ClassDef, FuncDef, LambdaDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef,
+};
 use typed_arena::Arena;
 
 // if you want to alloc other types, you can add them to TypeCkAlloc
@@ -13,7 +15,6 @@ use typed_arena::Arena;
 pub struct TypeCkAlloc<'a> {
     pub ty: Arena<Ty<'a>>,
 }
-
 
 pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Errors<'a, Ty<'a>>> {
     let mut s = SymbolPass(TypeCk {
@@ -73,7 +74,7 @@ impl<'a> TypeCk<'a> {
                 } else {
                     self.issue(s.loc, NoSuchClass(name))
                 }
-            },
+            }
             SynTyKind::Lambda(lam) => {
                 //let mut args = vec![self.ty(&lam[lam.len() - 1], false)];
                 let mut args = vec![];

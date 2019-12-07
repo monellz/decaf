@@ -40,7 +40,9 @@ pub fn func_def(f: &FuncDef, p: &mut IndentPrinter) {
     write!(p, "FORMAL SCOPE OF '{}':", f.name).ignore();
     p.indent(|p| {
         show_scope(&f.scope.borrow(), p);
-        if let Some(_) = f.body { block(&f.body.as_ref().expect("print scope: unwrap a non body"), p); }
+        if let Some(_) = f.body {
+            block(&f.body.as_ref().expect("print scope: unwrap a non body"), p);
+        }
     });
 }
 
@@ -55,7 +57,7 @@ pub fn lambda_def(lam: &LambdaDef, p: &mut IndentPrinter) {
                     show_scope(&lam.local_scope.borrow(), p);
                     expr(e, p);
                 });
-            },
+            }
             LambdaKind::Block(b) => block(b, p),
         };
     });
@@ -68,25 +70,24 @@ pub fn expr(e: &Expr, p: &mut IndentPrinter) {
         IndexSel(i) => {
             expr(&i.arr, p);
             expr(&i.idx, p);
-        },
+        }
         Call(c) => {
             expr(&c.func, p);
             for e in &c.arg {
                 expr(e, p);
             }
-        },
+        }
         Unary(u) => expr(&u.r, p),
         Binary(b) => {
             expr(&b.l, p);
             expr(&b.r, p);
-        },
+        }
         NewArray(n) => expr(&n.len, p),
         ClassTest(c) => expr(&c.expr, p),
         ClassCast(c) => expr(&c.expr, p),
-        _ => {},
+        _ => {}
     };
 }
-
 
 pub fn block(b: &Block, p: &mut IndentPrinter) {
     write!(p, "LOCAL SCOPE:").ignore();
@@ -103,12 +104,12 @@ pub fn block(b: &Block, p: &mut IndentPrinter) {
                 StmtKind::While(w) => block(&w.body, p),
                 StmtKind::For(f) => block(&f.body, p),
                 StmtKind::Block(b) => block(b, p),
-                
+
                 //suport lambda
                 StmtKind::Assign(a) => {
                     expr(&a.dst, p);
                     expr(&a.src, p);
-                },
+                }
                 StmtKind::LocalVarDef(l) => {
                     if let Some((_, e)) = &l.init {
                         expr(e, p);
@@ -116,11 +117,15 @@ pub fn block(b: &Block, p: &mut IndentPrinter) {
                 }
                 StmtKind::ExprEval(e) => expr(e, p),
                 StmtKind::Return(ret) => {
-                    if let Some(e) = &ret { expr(e, p); }
-                },
+                    if let Some(e) = &ret {
+                        expr(e, p);
+                    }
+                }
                 StmtKind::Print(v) => {
-                    for e in v { expr(e, p); }
-                },
+                    for e in v {
+                        expr(e, p);
+                    }
+                }
                 _ => {}
             }
         }

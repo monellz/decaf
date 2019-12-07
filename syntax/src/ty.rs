@@ -120,15 +120,21 @@ impl<'a> Ty<'a> {
         Ty::new(TyKind::Class(Ref(c)))
     }
     pub fn mk_func(f: &'a FuncDef<'a>) -> Ty<'a> {
-        Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty")))
+        Ty::new(TyKind::Func(
+            f.ret_param_ty.get().expect("unwrap a non ret_param_ty"),
+        ))
     }
-    
+
     pub fn mk_lambda(f: &'a LambdaDef<'a>) -> Ty<'a> {
         if let None = f.ret_param_ty.get() {
             println!("{:?} name = {}", f.loc, f.name);
             unreachable!();
         }
-        Ty::new(TyKind::Func(f.ret_param_ty.get().expect("unwrap a non ret_param_ty for lambda")))
+        Ty::new(TyKind::Func(
+            f.ret_param_ty
+                .get()
+                .expect("unwrap a non ret_param_ty for lambda"),
+        ))
     }
 
     // if you want something like `is_void()`, just use `== Ty::void()`
