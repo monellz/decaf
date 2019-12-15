@@ -73,7 +73,11 @@ impl<'a> TacGen<'a> {
                         format!("_{}.{}", c.name, fu.name)
                     };
                     let mut f = TacFunc::empty(alloc, name, self.reg_num);
-                    self.block(&fu.body.as_ref().expect("in tacgen/lib.s"), &mut f);
+
+                    //for abstract func
+                    if !fu.abstract_ {
+                        self.block(&fu.body.as_ref().expect("in tacgen/lib.s"), &mut f);
+                    }
                     f.reg_num = self.reg_num;
                     // add an return at the end of return-void function
                     if fu.ret_ty() == Ty::void() {
