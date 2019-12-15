@@ -434,6 +434,35 @@ impl<'a> TacGen<'a> {
                         }
                         Reg(dst)
                     }
+                    Div | Mod => {
+                        //runtime error for division by zero error
+                        let (dst, r_reg) = (self.reg(), self.reg());
+                        let ok = self.reg();
+                        let (err, after) = (self.label(), self.label()); 
+                        f.push(Bin {
+                            op: Ne,
+                            dst: ok,
+                            lr: [r, Const(0)],
+                        })
+                        .push(Jif {
+                            label: err,
+                            z: true,
+                            cond: [Reg(ok)],
+                        })
+                        .push(Tac::Assign {
+                            dst: r_reg,
+                            src: [r],
+                        })
+                        .push(Bin {
+                            op: Div,
+                            dst,
+                            lr: [l, Reg(r_reg)],
+                        });
+                        f.push(Jmp { label: after });
+                        self.re(DIVISION_BY_ZERO, f.push(Label { label: err }));
+                        f.push(Label { label: after });
+                        Reg(dst)
+                    }
                     op => {
                         let dst = self.reg();
                         f.push(Bin {
