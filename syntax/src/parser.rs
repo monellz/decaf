@@ -557,6 +557,7 @@ impl<'p> Parser<'p> {
                 kind: LambdaKind::Expr(Box::new(e)),
                 scope: dft(),
                 local_scope: dft(),
+                captured_var: dft(),
             }
             .into(),
         )
@@ -580,6 +581,7 @@ impl<'p> Parser<'p> {
                 kind: LambdaKind::Block(block),
                 scope: dft(),
                 local_scope: dft(),
+                captured_var: dft(),
             }
             .into(),
         )

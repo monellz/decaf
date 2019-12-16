@@ -113,7 +113,7 @@ impl<'a> TypePass<'a> {
                             match sym {
                                 Symbol::Func(_) => self.issue(s.loc, AssignToClassMethod(vs.name)),
                                 Symbol::Var(v) => {
-                                    if let Some(lam) = self.cur_lambda {
+                                    if let Some(lam) = self.lambda_stack.last() {
                                         if let LambdaKind::Block(_) = &lam.kind {
                                             if out_of_lambda {
                                                 use ScopeOwner::*;
@@ -198,7 +198,7 @@ impl<'a> TypePass<'a> {
             }),
             StmtKind::Return(r) => {
                 let actual = r.as_ref().map(|e| self.expr(e)).unwrap_or(Ty::void());
-                if let None = self.cur_lambda {
+                if let None = self.lambda_stack.last() {
                     let expect = self.cur_func.unwrap().ret_ty();
                     if !actual.assignable_to(expect) {
                         self.issue(s.loc, ReturnMismatch { actual, expect })
@@ -249,13 +249,11 @@ impl<'a> TypePass<'a> {
                 }
             }
             Lambda(lam) => {
-                match &lam.kind {
+                self.lambda_stack.push(lam);
+                let lam_ret = match &lam.kind {
                     LambdaKind::Expr(e) => {
                         if let None = lam.ret_param_ty.get() {
-                            let prev_lambda = self.cur_lambda;
-                            self.cur_lambda = Some(lam);
                             let ret_ty = self.scoped(ScopeOwner::LambdaParam(lam), |s| s.expr(e));
-                            self.cur_lambda = prev_lambda;
                             let ret_param_ty =
                                 std::iter::once(ret_ty).chain(lam.param.iter().map(|v| v.ty.get()));
                             let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
@@ -264,11 +262,8 @@ impl<'a> TypePass<'a> {
                         Ty::mk_lambda(lam)
                     }
                     LambdaKind::Block(b) => {
-                        let prev_lambda = self.cur_lambda;
-                        self.cur_lambda = Some(lam);
                         let (last_ret, mut ret_list) =
                             self.scoped(ScopeOwner::LambdaParam(lam), |s| s.block(&b));
-                        self.cur_lambda = prev_lambda;
 
                         if let None = lam.ret_param_ty.get() {
                             if ret_list.len() == 0 {
@@ -294,7 +289,22 @@ impl<'a> TypePass<'a> {
 
                         Ty::mk_lambda(lam)
                     }
+                };
+                
+                //insert
+                self.lambda_stack.pop();
+                if let Some(last_lam) = self.lambda_stack.last() {
+                    let mut new_elem: std::vec::Vec<Ref<'a, VarDef<'a>>> = lam.captured_var.borrow().iter().filter_map(|&v| {
+                        let (_, out_of_lambda) = self.scopes.lookup_before(v.name, e.loc);
+                        if !out_of_lambda {
+                            None
+                        } else {
+                            Some(v)
+                        }
+                    }).collect();
+                    last_lam.captured_var.borrow_mut().append(&mut new_elem);
                 }
+                lam_ret
                 //unimplemented!()
             }
             IntLit(_) | ReadInt(_) => Ty::int(),
@@ -521,7 +531,8 @@ impl<'a> TypePass<'a> {
             }
         } else {
             //v owner is none
-            if let Some(sym) = self.scopes.lookup_before(v.name, loc).0 {
+            let (opt, out_of_lambda) = self.scopes.lookup_before(v.name, loc);
+            if let Some(sym) = opt {
                 match sym {
                     Symbol::Var(var) => {
                         v.var.set(VarSelContent::Var(var));
@@ -536,7 +547,18 @@ impl<'a> TypePass<'a> {
                                     },
                                 )
                             }
+                        } else if let Some(lam) = self.lambda_stack.last() {
+                            /*
+                            let mut can_insert = !lam.scope.borrow().contains_key(var.name) && !lam.local_scope.borrow().contains_key(var.name);
+                            if let LambdaKind::Block(b) = &lam.kind {
+                                can_insert = can_insert && !b.scope.borrow().contains_key(var.name);
+                            }
+                            */
+                            if out_of_lambda {
+                                lam.captured_var.borrow_mut().push(Ref(var));
+                            }
                         }
+
                         (var.ty.get(), Some(v))
                     }
                     Symbol::Class(c) if self.cur_used => (Ty::mk_class(c), Some(v)),

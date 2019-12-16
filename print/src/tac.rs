@@ -18,7 +18,6 @@ pub fn program(pr: &TacProgram, p: &mut IndentPrinter) {
         });
         write!(p, "}}\n\n").ignore();
     }
-    println!("int func, func len = {}", pr.func.len());
     for f in &pr.func {
         write!(p, "FUNC<{}> {{", f.name).ignore();
         p.indent(|p| {

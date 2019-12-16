@@ -2,7 +2,7 @@ use crate::{ClassDef, FuncDef, LambdaDef};
 use common::{Loc, Ref};
 use std::fmt;
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone)]
 pub enum SynTyKind<'a> {
     Int,
     Bool,
@@ -13,7 +13,7 @@ pub enum SynTyKind<'a> {
     Lambda(Vec<SynTy<'a>>),
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone)]
 pub struct SynTy<'a> {
     pub loc: Loc,
     pub arr: u32,

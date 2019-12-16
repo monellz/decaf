@@ -24,7 +24,7 @@ pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Er
         cur_used: false,
         cur_func: None,
         cur_expr_func_ref: None,
-        cur_lambda: None,
+        lambda_stack: Vec::new(),
         cur_class: None,
         cur_var_def: None,
         alloc,
@@ -50,7 +50,7 @@ struct TypeCk<'a> {
     cur_used: bool,
     cur_func: Option<&'a FuncDef<'a>>,
     cur_expr_func_ref: Option<&'a FuncDef<'a>>,
-    cur_lambda: Option<&'a LambdaDef<'a>>,
+    lambda_stack: std::vec::Vec<&'a LambdaDef<'a>>,
     cur_class: Option<&'a ClassDef<'a>>,
     // actually only use cur_var_def's loc
     // if cur_var_def is Some, will use it's loc to search for symbol in TypePass::var_sel
