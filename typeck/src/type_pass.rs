@@ -597,8 +597,10 @@ impl<'a> TypePass<'a> {
             _ => None,
         };
 
-        let func_ty = self.alloc.ty.alloc(self.expr(&c.func));
         let prev_expr_func_ref = self.cur_expr_func_ref;
+        self.cur_expr_func_ref = None;
+        let func_ty = self.alloc.ty.alloc(self.expr(&c.func));
+        //let prev_expr_func_ref = self.cur_expr_func_ref;
         let func_ty = match func_ty.kind {
             TyKind::Func(t) => t,
             TyKind::Error | TyKind::Null => return Ty::error(),
