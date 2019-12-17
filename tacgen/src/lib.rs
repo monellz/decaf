@@ -251,11 +251,6 @@ impl<'a> TacGen<'a> {
         let assign = self.cur_assign.take();
         match &e.kind {
             Lambda(lam) => {
-                println!("lam e.loc = {:?}", e.loc);
-                lam.captured_var.borrow().iter().for_each(|v| {
-                    println!("v.name = {:?}, loc = {:?}", v.name, v.loc);
-                });
-
                 //generate lambda func
                 let prev_lambda = self.cur_lambda;
                 self.cur_lambda = Some(lam);
@@ -354,8 +349,6 @@ impl<'a> TacGen<'a> {
                 }
                 
                 lam.captured_var.borrow().iter().enumerate().for_each(|(i, var)| {
-                    println!("lambda @{:?}, var name = {:?}", lam.loc, var.name);
-                    println!("lambda @{:?}, store v.name = {:?} to reg[{}]", lam.loc, var.name, self.var_info[&Ref(var)].off);
                     f.push(Tac::Store {
                         src_base: [Reg(self.var_info[&Ref(var)].off), Reg(addr)],
                         off: ((i + 2) as i32 * INT_SIZE) as i32,
@@ -411,10 +404,9 @@ impl<'a> TacGen<'a> {
                                 // `this` is at argument 0
                                 let owner = v.owner.as_ref().map(|o| self.expr(o, f));
                                 let owner = if let None = owner {
-                                    if let Some(lam) = self.cur_lambda {
+                                    if let Some(_) = self.cur_lambda {
                                         //println!("cur_lambda is {:?}", lam.loc);
                                         let r = self.reg();
-                                        println!("cur_lambda is {:?}", lam.loc);
                                         f.push(Load {
                                             dst: r,
                                             base: [Reg(0)],

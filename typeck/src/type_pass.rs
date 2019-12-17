@@ -548,12 +548,6 @@ impl<'a> TypePass<'a> {
                                 )
                             }
                         } else if let Some(lam) = self.lambda_stack.last() {
-                            /*
-                            let mut can_insert = !lam.scope.borrow().contains_key(var.name) && !lam.local_scope.borrow().contains_key(var.name);
-                            if let LambdaKind::Block(b) = &lam.kind {
-                                can_insert = can_insert && !b.scope.borrow().contains_key(var.name);
-                            }
-                            */
                             if out_of_lambda {
                                 lam.captured_var.borrow_mut().push(Ref(var));
                             }
