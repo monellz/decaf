@@ -142,7 +142,7 @@ pub fn run(i: impl AsRef<Path>, o: impl AsRef<Path>, pa: Pa) -> io::Result<Strin
                 fs::write(o.with_extension("tac"), &p)?;
                 tacvm::work(
                     &p,
-                    100_000,
+                    10_000_000,
                     1000,
                     true,
                     true,
