@@ -1,6 +1,5 @@
 Cargo.lock
 .idea
 target
-testcase
 *.txt
 *.decaf

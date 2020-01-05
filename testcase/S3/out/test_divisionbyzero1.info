@@ -1,0 +1,4 @@
+VM halted with error: Halt
+stacktrace: 
+  - function `main`, line 28, code `call _Halt`, [%0 = 0, %1 = -1610612735("testing division by 0 runtime error1\n"), %2 = -572662307(uninitialized), %3 = -572662307(uninitialized), %4 = 0, %5 = -1610612734("Decaf runtime error: Division by zero error\n"), %6 = -572662307(uninitialized)]
+Totally 10 instruction(s) executed
