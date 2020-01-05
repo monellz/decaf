@@ -76,11 +76,9 @@ impl<'a> SymbolPass<'a> {
             return;
         }
         let mut checked = HashSet::new();
-        let mut abs_func_set = HashMap::new();
         for c in &p.class {
-            self.class_def(c, &mut checked, &mut abs_func_set);
-            if c.name == MAIN_CLASS && !c.abstract_ {
-                //main class should not be abstract
+            self.class_def(c, &mut checked);
+            if c.name == MAIN_CLASS {
                 p.main.set(Some(c));
             }
         }
@@ -88,8 +86,7 @@ impl<'a> SymbolPass<'a> {
             .get()
             .map(|c| match c.scope.borrow().get(MAIN_METHOD) {
                 Some(Symbol::Func(main))
-                    //main func should not be abstract
-                    if !main.abstract_ && main.static_ && main.param.is_empty() && main.ret_ty() == Ty::void() =>
+                    if main.static_ && main.param.is_empty() && main.ret_ty() == Ty::void() =>
                 {
                     false
                 }
@@ -101,48 +98,25 @@ impl<'a> SymbolPass<'a> {
         }
     }
 
-    fn class_def(
-        &mut self,
-        c: &'a ClassDef<'a>,
-        checked: &mut HashSet<Ref<'a, ClassDef<'a>>>,
-        abs_func_map: &mut HashMap<&'a str, HashSet<&'a str>>,
-    ) -> HashSet<&'a str> {
+    fn class_def(&mut self, c: &'a ClassDef<'a>, checked: &mut HashSet<Ref<'a, ClassDef<'a>>>) {
         if !checked.insert(Ref(c)) {
-            //if checked already has c, return its set
-            return abs_func_map
-                .get(c.name)
-                .expect("cannot find hashset")
-                .clone();
+            return;
         }
-
-        let mut abs_func_set = if let Some(p) = c.parent_ref.get() {
-            //get parent's abstract func set
-            self.class_def(p, checked, abs_func_map)
-        } else {
-            HashSet::new()
-        };
-
+        if let Some(p) = c.parent_ref.get() {
+            self.class_def(p, checked);
+        }
         self.cur_class = Some(c);
         self.scoped(ScopeOwner::Class(c), |s| {
             for f in &c.field {
                 match f {
-                    FieldDef::FuncDef(f) => s.func_def(f, &mut abs_func_set),
+                    FieldDef::FuncDef(f) => s.func_def(f),
                     FieldDef::VarDef(v) => s.var_def(v),
                 };
             }
         });
-
-        //println!("class: {}, set = {:?}", c.name, abs_func_set);
-        if !abs_func_set.is_empty() && !c.abstract_ {
-            //non abstract class has abstract func which is not implement
-            self.issue(c.loc, NotOverrideAllAbstractFunc(c.name))
-        }
-
-        abs_func_map.insert(c.name, abs_func_set.clone());
-        abs_func_set
     }
 
-    fn func_def(&mut self, f: &'a FuncDef<'a>, class_abs_func_set: &mut HashSet<&'a str>) {
+    fn func_def(&mut self, f: &'a FuncDef<'a>) {
         let ret_ty = self.ty(&f.ret, false);
         self.scoped(ScopeOwner::Param(f), |s| {
             if !f.static_ {
@@ -151,12 +125,7 @@ impl<'a> SymbolPass<'a> {
             for v in &f.param {
                 s.var_def(v);
             }
-
-            if !f.abstract_ {
-                s.block(&f.body.as_ref().expect("unwrap a none func body"));
-            } else {
-                class_abs_func_set.insert(f.name);
-            }
+            s.block(&f.body);
         });
         let ret_param_ty = iter::once(ret_ty).chain(f.param.iter().map(|v| v.ty.get()));
         let ret_param_ty = self.alloc.ty.alloc_extend(ret_param_ty);
@@ -166,8 +135,7 @@ impl<'a> SymbolPass<'a> {
             match (self.scopes.cur_owner(), owner) {
                 (ScopeOwner::Class(c), ScopeOwner::Class(p)) if Ref(c) != Ref(p) => match sym {
                     Symbol::Func(pf) => {
-                        if (f.static_ || pf.static_) || (f.abstract_ && !pf.abstract_) {
-                            //subclass cannot abstract override superclass non-abstract func
+                        if f.static_ || pf.static_ {
                             self.issue(
                                 f.loc,
                                 ConflictDeclaration {
@@ -184,10 +152,6 @@ impl<'a> SymbolPass<'a> {
                                 },
                             )
                         } else {
-                            //override checked
-                            if !f.abstract_ && !f.static_ {
-                                class_abs_func_set.remove(f.name);
-                            }
                             true
                         }
                     }
@@ -216,14 +180,10 @@ impl<'a> SymbolPass<'a> {
     }
 
     fn var_def(&mut self, v: &'a VarDef<'a>) {
-        //type inference is delayed to type_pass
-        if let Some(syn_ty) = &v.syn_ty {
-            v.ty.set(self.ty(&syn_ty, false));
-            if v.ty.get() == Ty::void() {
-                self.issue(v.loc, VoidVar(v.name))
-            }
+        v.ty.set(self.ty(&v.syn_ty, false));
+        if v.ty.get() == Ty::void() {
+            self.issue(v.loc, VoidVar(v.name))
         }
-
         let ok = if let Some((sym, owner)) = self.scopes.lookup(v.name) {
             match (self.scopes.cur_owner(), owner) {
                 (ScopeOwner::Class(c1), ScopeOwner::Class(c2))
@@ -233,8 +193,7 @@ impl<'a> SymbolPass<'a> {
                 }
                 (ScopeOwner::Class(_), ScopeOwner::Class(_))
                 | (_, ScopeOwner::Param(_))
-                | (_, ScopeOwner::Local(_))
-                | (_, ScopeOwner::LambdaParam(_)) => self.issue(
+                | (_, ScopeOwner::Local(_)) => self.issue(
                     v.loc,
                     ConflictDeclaration {
                         prev: sym.loc(),
@@ -262,12 +221,7 @@ impl<'a> SymbolPass<'a> {
 
     fn stmt(&mut self, s: &'a Stmt<'a>) {
         match &s.kind {
-            StmtKind::LocalVarDef(v) => {
-                self.var_def(v);
-                if let Some((_, e)) = &v.init {
-                    self.expr(e);
-                }
-            }
+            StmtKind::LocalVarDef(v) => self.var_def(v),
             StmtKind::If(i) => {
                 self.block(&i.on_true);
                 if let Some(of) = &i.on_false {
@@ -283,65 +237,6 @@ impl<'a> SymbolPass<'a> {
                 }
             }),
             StmtKind::Block(b) => self.block(b),
-
-            //add support for lambda symbol
-            StmtKind::Assign(a) => {
-                self.expr(&a.dst);
-                self.expr(&a.src);
-            }
-            StmtKind::ExprEval(e) => self.expr(e),
-            StmtKind::Return(r) => {
-                if let Some(e) = r {
-                    self.expr(e);
-                }
-            }
-            StmtKind::Print(p) => {
-                for e in p {
-                    self.expr(e);
-                }
-            }
-            _ => {}
-        };
-    }
-
-    fn expr(&mut self, e: &'a Expr<'a>) {
-        use ExprKind::*;
-        match &e.kind {
-            Lambda(lam) => {
-                //add lambda to the symbol table
-                self.scoped(ScopeOwner::LambdaParam(lam), |s| {
-                    for v in &lam.param {
-                        s.var_def(v);
-                    }
-                    match &lam.kind {
-                        LambdaKind::Expr(e) => {
-                            s.scoped(ScopeOwner::LambdaExprLocal(lam), |s| {
-                                s.expr(e);
-                            });
-                        }
-                        LambdaKind::Block(block) => s.block(block),
-                    };
-                });
-                self.scopes.declare(Symbol::Lambda(lam));
-            }
-            IndexSel(i) => {
-                self.expr(&i.arr);
-                self.expr(&i.idx);
-            }
-            Call(c) => {
-                self.expr(&c.func);
-                for e in &c.arg {
-                    self.expr(e);
-                }
-            }
-            Unary(u) => self.expr(&u.r),
-            Binary(b) => {
-                self.expr(&b.l);
-                self.expr(&b.r);
-            }
-            NewArray(n) => self.expr(&n.len),
-            ClassTest(c) => self.expr(&c.expr),
-            ClassCast(c) => self.expr(&c.expr),
             _ => {}
         };
     }

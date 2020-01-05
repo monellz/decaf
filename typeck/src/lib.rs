@@ -5,9 +5,7 @@ mod type_pass;
 use crate::{scope_stack::ScopeStack, symbol_pass::SymbolPass, type_pass::TypePass};
 use common::{ErrorKind::*, Errors, Ref};
 use std::ops::{Deref, DerefMut};
-use syntax::{
-    ClassDef, FuncDef, LambdaDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef,
-};
+use syntax::{ClassDef, FuncDef, Program, ScopeOwner, SynTy, SynTyKind, Ty, TyKind, VarDef};
 use typed_arena::Arena;
 
 // if you want to alloc other types, you can add them to TypeCkAlloc
@@ -23,8 +21,6 @@ pub fn work<'a>(p: &'a Program<'a>, alloc: &'a TypeCkAlloc<'a>) -> Result<(), Er
         loop_cnt: 0,
         cur_used: false,
         cur_func: None,
-        cur_expr_func_ref: None,
-        lambda_stack: Vec::new(),
         cur_class: None,
         cur_var_def: None,
         alloc,
@@ -49,15 +45,12 @@ struct TypeCk<'a> {
     // Class.var (cur_used == true) => BadFieldAssess; Class (cur_used == false) => UndeclaredVar
     cur_used: bool,
     cur_func: Option<&'a FuncDef<'a>>,
-    cur_expr_func_ref: Option<&'a FuncDef<'a>>,
-    lambda_stack: std::vec::Vec<&'a LambdaDef<'a>>,
     cur_class: Option<&'a ClassDef<'a>>,
     // actually only use cur_var_def's loc
     // if cur_var_def is Some, will use it's loc to search for symbol in TypePass::var_sel
     // this can reject code like `int a = a;`
     cur_var_def: Option<&'a VarDef<'a>>,
     alloc: &'a TypeCkAlloc<'a>,
-    //arr_alloc: &'a TypeArrCkAlloc<'a>,
 }
 
 impl<'a> TypeCk<'a> {
@@ -74,19 +67,6 @@ impl<'a> TypeCk<'a> {
                 } else {
                     self.issue(s.loc, NoSuchClass(name))
                 }
-            }
-            SynTyKind::Lambda(lam) => {
-                //let mut args = vec![self.ty(&lam[lam.len() - 1], false)];
-                let mut args = vec![];
-                args.push(self.ty(&lam[0], false));
-                for i in 1..lam.len() {
-                    if lam[i].kind == SynTyKind::Void {
-                        self.issue(lam[i].loc, NonVoidArgType)
-                    }
-                    args.push(self.ty(&lam[i], false));
-                }
-                let a = self.alloc.ty.alloc_extend(args);
-                TyKind::Func(a)
             }
         };
         match kind {

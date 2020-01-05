@@ -46,7 +46,7 @@ pub fn write_tac(t: Tac, pr: &TacProgram, p: &mut IndentPrinter) {
             match kind {
                 CallKind::Virtual(fp, _) => format!("{:?}", fp[0]),
                 CallKind::Static(f, _) => pr.func[f as usize].name.clone(),
-                CallKind::Intrinsic(i) => i.name().to_owned(),
+                CallKind::Intrinsic(i) => format!("{:?}", i),
             }
         ),
         Ret { src } => {

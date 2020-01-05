@@ -22,10 +22,8 @@ pub struct Program<'a> {
 
 pub struct ClassDef<'a> {
     pub loc: Loc,
-    pub finish_loc: Loc,
     pub name: &'a str,
     pub parent: Option<&'a str>,
-    pub abstract_: bool,
     pub field: Vec<FieldDef<'a>>,
     pub parent_ref: Cell<Option<&'a ClassDef<'a>>>,
     pub scope: RefCell<Scope<'a>>,
@@ -78,13 +76,11 @@ impl FieldDef<'_> {
 
 pub struct FuncDef<'a> {
     pub loc: Loc,
-    pub finish_loc: Loc,
     pub name: &'a str,
     pub ret: SynTy<'a>,
     pub param: Vec<&'a VarDef<'a>>,
     pub static_: bool,
-    pub abstract_: bool,
-    pub body: Option<Block<'a>>,
+    pub body: Block<'a>,
     // placing ret and param ty in one slice is mainly to some space, especially the size of struct Ty
     // [0] is ret_ty, [1..] is parm_ty
     pub ret_param_ty: Cell<Option<&'a [Ty<'a>]>>,
@@ -99,12 +95,10 @@ impl<'a> FuncDef<'a> {
     }
 }
 
-#[derive(Clone)]
 pub struct VarDef<'a> {
     pub loc: Loc,
-    pub finish_loc: Loc,
     pub name: &'a str,
-    pub syn_ty: Option<SynTy<'a>>,
+    pub syn_ty: SynTy<'a>,
     // if this is in an ClassDef, `init` must be None
     // if `syn_ty` is `Var` (not in the basic framework), `init` must be Some
     pub init: Option<(Loc, Expr<'a>)>,
@@ -118,14 +112,12 @@ impl<'a> VarDef<'a> {
     }
 }
 
-
-#[derive(Clone)]
 pub struct Stmt<'a> {
     pub loc: Loc,
     pub kind: StmtKind<'a>,
 }
 
-#[derive(derive_more::From, Clone)]
+#[derive(derive_more::From)]
 pub enum StmtKind<'a> {
     // below 4 are Simple
     Assign(Assign<'a>),
@@ -142,33 +134,28 @@ pub enum StmtKind<'a> {
     Block(Block<'a>),
 }
 
-#[derive(Clone)]
 pub struct Assign<'a> {
     pub dst: Expr<'a>,
     pub src: Expr<'a>,
 }
 
-#[derive(Clone)]
 pub struct Block<'a> {
     pub loc: Loc,
     pub stmt: Vec<Stmt<'a>>,
     pub scope: RefCell<Scope<'a>>,
 }
 
-#[derive(Clone)]
 pub struct If<'a> {
     pub cond: Expr<'a>,
     pub on_true: Block<'a>,
     pub on_false: Option<Block<'a>>,
 }
 
-#[derive(Clone)]
 pub struct While<'a> {
     pub cond: Expr<'a>,
     pub body: Block<'a>,
 }
 
-#[derive(Clone)]
 pub struct For<'a> {
     pub init: Box<Stmt<'a>>,
     pub cond: Expr<'a>,
@@ -176,14 +163,13 @@ pub struct For<'a> {
     pub body: Block<'a>,
 }
 
-#[derive(Clone)]
 pub struct Expr<'a> {
     pub loc: Loc,
     pub ty: Cell<Ty<'a>>,
     pub kind: ExprKind<'a>,
 }
 
-#[derive(derive_more::From, Clone)]
+#[derive(derive_more::From)]
 pub enum ExprKind<'a> {
     VarSel(VarSel<'a>),
     IndexSel(IndexSel<'a>),
@@ -191,7 +177,6 @@ pub enum ExprKind<'a> {
     BoolLit(bool),
     StringLit(&'a str),
     NullLit(NullLit),
-    Lambda(LambdaDef<'a>), //function type
     Call(Call<'a>),
     Unary(Unary<'a>),
     Binary(Binary<'a>),
@@ -204,33 +189,17 @@ pub enum ExprKind<'a> {
     ClassCast(ClassCast<'a>),
 }
 
-
-#[derive(Clone)]
 pub struct VarSel<'a> {
     pub owner: Option<Box<Expr<'a>>>,
     pub name: &'a str,
-    pub var: Cell<VarSelContent<'a>>,
+    pub var: Cell<Option<&'a VarDef<'a>>>,
 }
 
-#[derive(Copy, Clone)]
-pub enum VarSelContent<'a> {
-    Var(&'a VarDef<'a>),
-    Func(&'a FuncDef<'a>),
-    Empty,
-}
-impl<'a> std::default::Default for VarSelContent<'a> {
-    fn default() -> Self {
-        VarSelContent::Empty
-    }
-}
-
-#[derive(Clone)]
 pub struct IndexSel<'a> {
     pub arr: Box<Expr<'a>>,
     pub idx: Box<Expr<'a>>,
 }
 
-#[derive(Clone)]
 pub struct Call<'a> {
     // the framework only support `func` as VarSel
     // hint: there are 2 places using `func` as VarSel, and there are 2 unimplemented!() respectively
@@ -239,67 +208,33 @@ pub struct Call<'a> {
     pub func_ref: Cell<Option<&'a FuncDef<'a>>>,
 }
 
-#[derive(Clone)]
-pub struct LambdaDef<'a> {
-    pub loc: Loc,
-    pub finish_loc: Loc,
-    pub name: String,
-    pub param: Vec<&'a VarDef<'a>>,
-    pub ret_param_ty: Cell<Option<&'a [Ty<'a>]>>,
-    pub kind: LambdaKind<'a>,
-    pub scope: RefCell<Scope<'a>>,
-    //if kind is block, then use scope of block instead of this
-    pub local_scope: RefCell<Scope<'a>>,
-
-    //pub captured_var: Cell<std::vec::Vec<&'a VarDef<'a>>>,
-    pub captured_var: RefCell<std::vec::Vec<Ref<'a, VarDef<'a>>>>,
-}
-
-impl<'a> LambdaDef<'a> {
-    pub fn ret_ty(&self) -> Ty<'a> {
-        self.ret_param_ty.get().unwrap()[0]
-    }
-}
-
-#[derive(Clone)]
-pub enum LambdaKind<'a> {
-    Expr(Box<Expr<'a>>),
-    Block(Block<'a>),
-}
-
-#[derive(Clone)]
 pub struct Binary<'a> {
     pub op: BinOp,
     pub l: Box<Expr<'a>>,
     pub r: Box<Expr<'a>>,
 }
 
-#[derive(Clone)]
 pub struct Unary<'a> {
     pub op: UnOp,
     pub r: Box<Expr<'a>>,
 }
 
-#[derive(Clone)]
 pub struct NewClass<'a> {
     pub name: &'a str,
     pub class: Cell<Option<&'a ClassDef<'a>>>,
 }
 
-#[derive(Clone)]
 pub struct NewArray<'a> {
     pub elem: SynTy<'a>,
     pub len: Box<Expr<'a>>,
 }
 
-#[derive(Clone)]
 pub struct ClassTest<'a> {
     pub expr: Box<Expr<'a>>,
     pub name: &'a str,
     pub class: Cell<Option<&'a ClassDef<'a>>>,
 }
 
-#[derive(Clone)]
 pub struct ClassCast<'a> {
     pub name: &'a str,
     pub expr: Box<Expr<'a>>,
@@ -307,20 +242,14 @@ pub struct ClassCast<'a> {
 }
 
 // some unit struct, they exist just to make match pattern consistent(all patterns are like Xxx(x))
-#[derive(Clone)]
 pub struct Skip;
 
-#[derive(Clone)]
 pub struct Break;
 
-#[derive(Clone)]
 pub struct NullLit;
 
-#[derive(Clone)]
 pub struct This;
 
-#[derive(Clone)]
 pub struct ReadInt;
 
-#[derive(Clone)]
 pub struct ReadLine;

@@ -2,7 +2,7 @@ use common::IndexMap;
 use syntax::FuncDef;
 
 // these structs are used in tacgen to keep some intermediate information
-#[derive(Clone)]
+
 pub struct VarInfo {
     // if the var is a VarDef in class, `off` is the offset in object pointer
     // if the var is a VarDef in function, `off` is a virtual register number

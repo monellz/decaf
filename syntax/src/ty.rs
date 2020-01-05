@@ -1,19 +1,17 @@
-use crate::{ClassDef, FuncDef, LambdaDef};
+use crate::{ClassDef, FuncDef};
 use common::{Loc, Ref};
 use std::fmt;
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq)]
 pub enum SynTyKind<'a> {
     Int,
     Bool,
     String,
     Void,
     Named(&'a str),
-    //[0] ret [1, size - 1] param
-    Lambda(Vec<SynTy<'a>>),
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq)]
 pub struct SynTy<'a> {
     pub loc: Loc,
     pub arr: u32,
@@ -68,14 +66,11 @@ impl<'a> Ty<'a> {
         use TyKind::*;
         match (self.kind, rhs.kind) {
             (Error, _) | (_, Error) => true,
-            _ => {
-                self.arr == rhs.arr
-                    && match (self.kind, rhs.kind) {
+            _ if self.arr == rhs.arr => {
+                if self.arr == 0 {
+                    match (self.kind, rhs.kind) {
                         (Int, Int) | (Bool, Bool) | (String, String) | (Void, Void) => true,
                         (Object(c1), Object(Ref(c2))) => c1.extends(c2),
-                        (Object(c1), Class(Ref(c2))) => c1.extends(c2),
-                        (Class(c1), Object(Ref(c2))) => c1.extends(c2),
-                        (Class(c1), Class(Ref(c2))) => c1.extends(c2),
                         (Null, Object(_)) => true,
                         (Func(rp1), Func(rp2)) => {
                             let (r1, p1, r2, p2) = (&rp1[0], &rp1[1..], &rp2[0], &rp2[1..]);
@@ -88,7 +83,11 @@ impl<'a> Ty<'a> {
                         }
                         _ => false,
                     }
+                } else {
+                    *self == rhs
+                }
             }
+            _ => false,
         }
     }
 
@@ -120,21 +119,7 @@ impl<'a> Ty<'a> {
         Ty::new(TyKind::Class(Ref(c)))
     }
     pub fn mk_func(f: &'a FuncDef<'a>) -> Ty<'a> {
-        Ty::new(TyKind::Func(
-            f.ret_param_ty.get().expect("unwrap a non ret_param_ty"),
-        ))
-    }
-
-    pub fn mk_lambda(f: &'a LambdaDef<'a>) -> Ty<'a> {
-        if let None = f.ret_param_ty.get() {
-            println!("{:?} name = {}", f.loc, f.name);
-            unreachable!();
-        }
-        Ty::new(TyKind::Func(
-            f.ret_param_ty
-                .get()
-                .expect("unwrap a non ret_param_ty for lambda"),
-        ))
+        Ty::new(TyKind::Func(f.ret_param_ty.get().unwrap()))
     }
 
     // if you want something like `is_void()`, just use `== Ty::void()`

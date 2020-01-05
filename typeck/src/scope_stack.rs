@@ -26,20 +26,19 @@ impl<'a> ScopeStack<'a> {
     }
 
     // do lookup, but will ignore those local symbols whose loc >= the given loc
-    pub fn lookup_before(&self, name: &'a str, finish_loc: Loc) -> (Option<Symbol<'a>>, bool) {
-        let mut out_of_lambda = false;
-        for &owner in self.stack.iter().rev().chain(iter::once(&self.global)) {
-            if let Some(sym) = owner.scope().get(name).cloned() {
-                if !(owner.is_local() && sym.finish_loc() >= finish_loc) {
-                    return (Some(sym), out_of_lambda);
-                }
-            }
-
-            if !out_of_lambda && owner.is_lambda_param() {
-                out_of_lambda = true;
-            }
-        }
-        return (None, out_of_lambda);
+    pub fn lookup_before(&self, name: &'a str, loc: Loc) -> Option<Symbol<'a>> {
+        self.stack
+            .iter()
+            .rev()
+            .chain(iter::once(&self.global))
+            .filter_map(|&owner| {
+                owner
+                    .scope()
+                    .get(name)
+                    .copied()
+                    .filter(|sym| !(owner.is_local() && sym.loc() >= loc))
+            })
+            .next()
     }
 
     pub fn declare(&mut self, sym: Symbol<'a>) {
@@ -58,7 +57,7 @@ impl<'a> ScopeStack<'a> {
 
     // the global scope is not affected
     pub fn close(&mut self) {
-        let owner = self.stack.pop().expect("unwrap a non stack top item");
+        let owner = self.stack.pop().unwrap();
         if let ScopeOwner::Class(_) = owner {
             self.stack.clear(); // all scopes in the stack is its ancestors
         }
