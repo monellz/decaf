@@ -145,6 +145,55 @@ pub enum Tac {
     },
 }
 
+impl std::fmt::Debug for Tac {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Tac::Bin {dst, lr, ..} => {
+                write!(f, "bin dst:{:?} lr:[{:?}, {:?}]", dst, lr[0], lr[1])
+            }
+            Tac::Un {..} => {
+                write!(f, "un")
+            }
+            Tac::Assign {dst, src} => {
+                write!(f, "assign dst:%{:?} src:{:?}", dst, src[0])
+            }
+            Tac::Param {src} => {
+                write!(f, "param src:{:?}", src[0])
+            }
+            Tac::Call {..} => {
+                write!(f, "call")
+            }
+            Tac::Ret {..} => {
+                write!(f, "ret")
+            }
+            Tac::Jmp {..} => {
+                write!(f, "jmp")
+            }
+            Tac::Jif {..} => {
+                write!(f, "jif")
+            }
+            Tac::Label {..} => {
+                write!(f, "label")
+            }
+            Tac::Store {src_base, off, ..} => {
+                write!(f, "store src_base:[{:?}, {:?}], off:{:?}", src_base[0], src_base[1], off)
+            }
+            Tac::Load {dst, base, off, ..} => {
+                write!(f, "load dst:{:?}, base:{:?}, off:{:?}", dst, base[0], off)
+            }
+            Tac::LoadStr {..} => {
+                write!(f, "loadstr")
+            }
+            Tac::LoadVTbl {..} => {
+                write!(f, "loadvtbl")
+            }
+            Tac::LoadFunc {..} => {
+                write!(f, "loadfunc")
+            }
+        }
+    }
+}
+
 impl Tac {
     // r can be Operand, but w can only be reg, and there is at most 1 w
     pub fn rw(&self) -> (&[Operand], Option<u32>) {
