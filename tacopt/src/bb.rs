@@ -260,10 +260,10 @@ impl<'a> FuncBB<'a> {
     }
 
     pub fn optimize(&mut self) {
-        crate::common_expr::work(self);
-        crate::copy_prop::work(self);
-        crate::const_prop::work(self);
-        crate::aliveness::work(self);
+        //crate::common_expr::work(self);
+        //crate::copy_prop::work(self);
+        //crate::const_prop::work(self);
+        //crate::aliveness::work(self);
     }
 
     pub fn optimizen(&mut self, n: u32) {

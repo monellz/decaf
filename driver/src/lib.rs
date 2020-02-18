@@ -75,6 +75,7 @@ pub fn compile<'a>(
         fu.optimizen(10);
         if cfg.stage == Stage::Asm {
             let asm = FuncGen::work(&fu, &tp, codegen::AllocMethod::Graph);
+            //let asm = FuncGen::work(&fu, &tp, codegen::AllocMethod::Brute);
             print::mips::func(&asm, &f.name, &mut p);
         } else {
             // cfg.stage == Stage::TacOpt

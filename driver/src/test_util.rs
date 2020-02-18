@@ -41,7 +41,7 @@ impl Pa {
 
 const SPIM_PATH: &str = "spim";
 // ignore first SPIM_INFO_LINE line(s), don't compare them
-const SPIM_INFO_LINE: usize = 1;
+const SPIM_INFO_LINE: usize = 5;
 
 // `folder` should be the path of folder containing `pa_path` and other tools
 // `pa_path` should be relevant to `folder`, i.e., `folder`/`pa_path` is the real path to pa folder
@@ -208,8 +208,8 @@ pub enum ResultKind {
 
 impl ResultKind {
     pub fn new(out: &str, ans: &str, ignore_line: usize) -> ResultKind {
-        let (mut out_lines, mut ans_lines) =
-            (out.lines().skip(ignore_line), ans.lines().skip(ignore_line));
+        //let (mut out_lines, mut ans_lines) = (out.lines().skip(ignore_line), ans.lines().skip(ignore_line));
+        let (mut out_lines, mut ans_lines) = (out.lines().skip(ignore_line), ans.lines().skip(0));
         let mut first_diff = ignore_line + 1;
         // it seems there is no builtin iter function that implement "zip and pad the shorter one"
         loop {

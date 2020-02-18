@@ -176,28 +176,178 @@ impl<A: AllocCtx> Allocator<A> {
     // because it must borrow self as a whole, so you can't modify any other fields, even though they are not involved in this iterator
     // the solution is to inline these functions manually, then rustc knows that it will borrows some fields of self
 
+    fn adjacent(&self, n: u32) -> HashSet<u32> {
+        let mut adjlist: HashSet<_> = self.nodes[n as usize].adj_list.iter().cloned().collect();
+        adjlist.retain(|x| !self.select_stack.contains(x) && !self.coalesced_nodes.contains(x));
+        adjlist
+    }
+
+    fn node_moves(&self, n: u32) -> HashSet<(u32, u32)> {
+        let mut move_list: HashSet<_> = self.nodes[n as usize].move_list.iter().cloned().collect();
+        move_list.retain(|x| self.active_moves.contains(x) || self.work_list_moves.contains(x));
+        move_list
+    }
+
+    fn move_related(&self, n: u32) -> bool {
+        !self.node_moves(n).is_empty()
+    }
+
     fn mk_work_list(&mut self) {
-        unimplemented!()
+        let initial = self.initial.clone();
+        for n in initial {
+            if self.nodes[n as usize].degree >= A::K {
+                self.spill_work_list.insert(n);
+            } else if self.move_related(n) {
+                self.freeze_work_list.insert(n);
+            } else {
+                self.simplify_work_list.insert(n);
+            }
+        }
+        self.initial.clear();
     }
 
     fn simplify(&mut self) {
-        unimplemented!()
+        let n = *self.simplify_work_list.iter().next().unwrap();
+        self.simplify_work_list.take(&n);
+        self.select_stack.insert(n);
+        for m in self.adjacent(n) {
+            self.decrement_degree(m);
+        }
+    }
+
+    fn decrement_degree(&mut self, m: u32) {
+        let d = self.nodes[m as usize].degree;
+        self.nodes[m as usize].degree = d - 1;
+        if d == A::K {
+            let mut moves = self.adjacent(m);
+            moves.insert(m);
+            self.enable_moves(moves);
+
+            self.spill_work_list.remove(&m);
+            if self.move_related(m) {
+                self.freeze_work_list.insert(m);
+            } else {
+                self.simplify_work_list.insert(m);
+            }
+        }
+    }
+
+    fn enable_moves(&mut self, nodes: HashSet<u32>) {
+        for n in nodes {
+            for m in self.node_moves(n) {
+                if self.active_moves.contains(&m) {
+                    self.active_moves.remove(&m);
+                    self.work_list_moves.insert(m);
+                } 
+            }
+        }
     }
 
     fn coalesce(&mut self) {
-        unimplemented!()
+        let m = *self.work_list_moves.iter().next().unwrap();
+        let x = self.get_alias(m.0);
+        let y = self.get_alias(m.1);
+        let (u, v) = if self.nodes[y as usize].pre_colored() {
+            (y, x)
+        } else {
+            (x, y)
+        };
+        self.work_list_moves.remove(&m);
+        if u == v {
+            //coalescedMoves = coalescedMoves \union {m}
+            self.add_work_list(u);
+        } else if self.nodes[v as usize].pre_colored() || self.adj_set.contains(&(u, v)){
+            //coalescedMoves = coalescedMoves \union {m}
+            self.add_work_list(u);
+            self.add_work_list(v);
+        } else {
+            let cond = self.nodes[u as usize].pre_colored() && self.adjacent(v).iter().fold(true, |acc, &t| acc && self.ok(t, u));
+            let tmp_union = self.adjacent(u).into_iter().chain(self.adjacent(v).into_iter()).collect();
+            let cond = cond || (!self.nodes[u as usize].pre_colored() && self.conservative(tmp_union));
+            if cond {
+                //coalescedMoves = coalescedMoves \union {m}
+                self.combine(u, v);
+                self.add_work_list(u);
+            } else {
+                self.active_moves.insert(m);        
+            }
+        }
     }
 
-    fn get_alias(&self, mut _n: u32) -> u32 {
-        unimplemented!()
+    fn add_work_list(&mut self, u: u32) {
+        if !self.nodes[u as usize].pre_colored() && !self.move_related(u) && self.nodes[u as usize].degree < A::K {
+            self.freeze_work_list.remove(&u);
+            self.simplify_work_list.insert(u);
+        }
+    }
+
+    fn ok(&self, t: u32, r: u32) -> bool {
+        self.nodes[t as usize].degree < A::K || self.nodes[t as usize].pre_colored() || self.adj_set.contains(&(t, r))
+    }
+
+    fn conservative(&self, nodes: HashSet<u32>) -> bool {
+        let mut k = 0;
+        for n in nodes {
+            if self.nodes[n as usize].degree >= A::K { k += 1; }
+        }
+        k < A::K
+    }
+
+    fn get_alias(&self, n: u32) -> u32 {
+        if self.coalesced_nodes.contains(&n) { self.get_alias(self.nodes[n as usize].alias) }
+        else { n }
+    }
+
+    fn combine(&mut self, u: u32, v: u32) {
+        if self.freeze_work_list.contains(&v) {
+            self.freeze_work_list.remove(&v);
+        } else {
+            self.spill_work_list.remove(&v);
+        }
+
+        self.coalesced_nodes.insert(v);
+        self.nodes[v as usize].alias = u;
+        //nodeMoves[u] = nodeMoves[u] \union nodeMoves[v]
+        for t in self.adjacent(v) {
+            self.add_edge(t, u);
+            self.decrement_degree(t);
+        }
+
+        if self.nodes[u as usize].degree >= A::K && self.freeze_work_list.contains(&u) {
+            self.freeze_work_list.remove(&u);
+            self.spill_work_list.insert(u);
+        }
     }
 
     fn freeze(&mut self) {
-        unimplemented!()
+        let u = *self.freeze_work_list.iter().next().unwrap();
+        self.freeze_work_list.remove(&u);
+        self.simplify_work_list.insert(u);
+        self.freeze_moves(u);
+    }
+
+    fn freeze_moves(&mut self, u: u32) {
+        for m in self.node_moves(u) {
+            if self.active_moves.contains(&m) {
+                self.active_moves.remove(&m);
+            } else {
+                self.work_list_moves.remove(&m);
+            }
+            let (_, v) = m;
+            //frozenMoves = frozenMoves \union {m}
+            if self.node_moves(v).is_empty() && self.nodes[v as usize].degree < A::K {
+                self.freeze_work_list.remove(&v);
+                self.simplify_work_list.insert(v);
+            }
+        }
     }
 
     fn select_spill(&mut self) {
-        unimplemented!()
+        //???? favorite heuristic
+        let m = *self.spill_work_list.iter().next().unwrap();
+        self.spill_work_list.remove(&m);
+        self.simplify_work_list.insert(m);
+        self.freeze_moves(m);
     }
 
     fn assign_color(&mut self) {
